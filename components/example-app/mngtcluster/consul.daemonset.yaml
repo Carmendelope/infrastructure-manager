@@ -1,0 +1,141 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  annotations:
+    deprecated.daemonset.template.generation: "1"
+  creationTimestamp: 2018-10-01T08:54:46Z
+  generation: 1
+  labels:
+    app: consul
+    chart: consul-0.1.0
+    heritage: Tiller
+    release: honking-chimp
+  name: honking-chimp-consul
+  namespace: zone-a
+  resourceVersion: "192939"
+  selfLink: /apis/apps/v1/namespaces/zone-a/daemonsets/honking-chimp-consul
+  uid: a5800f1d-c557-11e8-abb7-080027d62bfd
+spec:
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: consul
+      chart: consul-0.1.0
+      component: client
+      hasDNS: "true"
+      release: honking-chimp
+  template:
+    metadata:
+      annotations:
+consul.hashicorp.com/connect-inject: "false"
+      creationTimestamp: null
+      labels:
+        app: consul
+        chart: consul-0.1.0
+        component: client
+        hasDNS: "true"
+        release: honking-chimp
+    spec:
+      containers:
+      - command:
+        - /bin/sh
+        - -ec
+        - |
+          CONSUL_FULLNAME="honking-chimp-consul"
+
+          exec /bin/consul agent \
+            -advertise="${POD_IP}" \
+            -bind=0.0.0.0 \
+            -client=0.0.0.0 \
+            -config-dir=/consul/config \
+            -datacenter=dc1 \
+            -data-dir=/consul/data \
+            -retry-join=${CONSUL_FULLNAME}-server-0.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc \
+            -retry-join=${CONSUL_FULLNAME}-server-1.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc \
+            -retry-join=${CONSUL_FULLNAME}-server-2.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc \
+            -domain=consul
+        env:
+        - name: POD_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        image: consul:1.2.3
+        imagePullPolicy: IfNotPresent
+        lifecycle:
+          preStop:
+            exec:
+              command:
+              - /bin/sh
+              - -c
+              - consul leave
+        name: consul
+        ports:
+        - containerPort: 8500
+          hostPort: 8500
+          name: http
+          protocol: TCP
+        - containerPort: 8301
+          name: serflan
+          protocol: TCP
+        - containerPort: 8302
+          name: serfwan
+          protocol: TCP
+        - containerPort: 8300
+          name: server
+          protocol: TCP
+        - containerPort: 8600
+          name: dns-tcp
+          protocol: TCP
+        - containerPort: 8600
+          name: dns-udp
+          protocol: UDP
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -ec
+            - |
+              curl http://127.0.0.1:8500/v1/status/leader 2>/dev/null | \
+              grep -E '".+"'
+          failureThreshold: 3
+          periodSeconds: 10
+          successThreshold: 1
+          timeoutSeconds: 1
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /consul/data
+          name: data
+        - mountPath: /consul/config
+          name: config
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 10
+      volumes:
+      - emptyDir: {}
+        name: data
+      - configMap:
+          defaultMode: 420
+          name: honking-chimp-consul-client-config
+        name: config
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+status:
+  currentNumberScheduled: 1
+  desiredNumberScheduled: 1
+  numberAvailable: 1
+  numberMisscheduled: 0
+  numberReady: 1
+  observedGeneration: 1
+  updatedNumberScheduled: 1
