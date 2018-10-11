@@ -29,5 +29,5 @@ spec:
     release: test-20181011
   sessionAffinity: None
   type: ClusterIP
-status:
-  loadBalancer: {}
+# status:
+#   loadBalancer: {}

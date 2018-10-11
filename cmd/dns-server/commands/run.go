@@ -12,8 +12,8 @@ import (
 )
 
 
-var helloCmd = &cobra.Command{
-	Use:   "hello",
+var runCmd = &cobra.Command{
+	Use:   "run",
 	Short: "Print a hello message",
 	Long:  `A long description about what is a hello message`,
 	Run: func(cmd *cobra.Command, args []string) {
@@ -23,5 +23,5 @@ var helloCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.AddCommand(helloCmd)
+	rootCmd.AddCommand(runCmd)
 }

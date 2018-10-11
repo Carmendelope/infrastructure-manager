@@ -5,7 +5,7 @@
 package commands
 
 import (
-	"github.com/nalej/golang-template/version"
+	"github.com/nalej/dns-server/version"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"

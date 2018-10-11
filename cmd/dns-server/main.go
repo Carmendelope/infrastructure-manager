@@ -7,8 +7,8 @@
 package main
 
 import (
-	"github.com/nalej/golang-template/cmd/dns-server/commands"
-	"github.com/nalej/golang-template/version"
+	"github.com/nalej/dns-server/cmd/dns-server/commands"
+	"github.com/nalej/dns-server/version"
 )
 
 var MainVersion string

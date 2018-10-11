@@ -1,8 +1,6 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: StatefulSet
 metadata:
-  # annotations:
-  #   deprecated.daemonset.template.generation: "1"
   # creationTimestamp: 2018-10-01T08:54:46Z
   # generation: 1
   labels:
@@ -10,30 +8,33 @@ metadata:
     # chart: consul-0.1.0
     # heritage: Tiller
     release: test-20181011
-  name: test-20181011-consul
+  name: test-20181011-consul-server
   namespace: nalej
-  # resourceVersion: "192939"
-  # selfLink: /apis/apps/v1/namespaces/zone-a/daemonsets/honking-chimp-consul
-  # uid: a5800f1d-c557-11e8-abb7-080027d62bfd
+  # resourceVersion: "193042"
+  # selfLink: /apis/apps/v1/namespaces/zone-a/statefulsets/honking-chimp-consul-server
+  # uid: a5825b09-c557-11e8-abb7-080027d62bfd
 spec:
-  # revisionHistoryLimit: 10
+  podManagementPolicy: Parallel
+  replicas: 3
+  revisionHistoryLimit: 10
   selector:
     matchLabels:
       app: consul
       # chart: consul-0.1.0
-      component: client
-      # hasDNS: "true"
+      component: server
+      hasDNS: "true"
       release: test-20181011
+  serviceName: test-20181011-consul-server
   template:
     metadata:
-#       annotations:
-# consul.hashicorp.com/connect-inject: "false"
-#       creationTimestamp: null
+      # annotations:
+      #   consul.hashicorp.com/connect-inject: "false"
+      # creationTimestamp: null
       labels:
         app: consul
         # chart: consul-0.1.0
-        component: client
-        # hasDNS: "true"
+        component: server
+        hasDNS: "true"
         release: test-20181011
     spec:
       containers:
@@ -46,14 +47,18 @@ spec:
           exec /bin/consul agent \
             -advertise="${POD_IP}" \
             -bind=0.0.0.0 \
+            -bootstrap-expect=3 \
             -client=0.0.0.0 \
             -config-dir=/consul/config \
             -datacenter=dc1 \
             -data-dir=/consul/data \
+            -domain=consul \
+            -hcl="connect { enabled = true }" \
+            -ui \
             -retry-join=${CONSUL_FULLNAME}-server-0.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc \
             -retry-join=${CONSUL_FULLNAME}-server-1.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc \
             -retry-join=${CONSUL_FULLNAME}-server-2.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc \
-            -domain=consul
+            -server
         env:
         - name: POD_IP
           valueFrom:
@@ -77,7 +82,6 @@ spec:
         name: consul
         ports:
         - containerPort: 8500
-          hostPort: 8500
           name: http
           protocol: TCP
         - containerPort: 8301
@@ -103,10 +107,11 @@ spec:
             - |
               curl http://127.0.0.1:8500/v1/status/leader 2>/dev/null | \
               grep -E '".+"'
-          failureThreshold: 3
-          periodSeconds: 10
+          failureThreshold: 2
+          initialDelaySeconds: 5
+          periodSeconds: 3
           successThreshold: 1
-          timeoutSeconds: 1
+          timeoutSeconds: 5
         resources: {}
         terminationMessagePath: /dev/termination-log
         terminationMessagePolicy: File
@@ -118,24 +123,35 @@ spec:
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       schedulerName: default-scheduler
-      securityContext: {}
+      securityContext:
+        fsGroup: 1000
       terminationGracePeriodSeconds: 10
       volumes:
-      - emptyDir: {}
-        name: data
       - configMap:
           defaultMode: 420
-          name: test-20181011-consul-client-config
+          name: test-20181011-consul-server-config
         name: config
-  # updateStrategy:
-  #   rollingUpdate:
-  #     maxUnavailable: 1
-  #   type: RollingUpdate
+  updateStrategy:
+    rollingUpdate:
+      partition: 0
+    type: RollingUpdate
+  volumeClaimTemplates:
+  - metadata:
+      creationTimestamp: null
+      name: data
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 10Gi
+    status:
+      phase: Pending
 # status:
-#   currentNumberScheduled: 1
-#   desiredNumberScheduled: 1
-#   numberAvailable: 1
-#   numberMisscheduled: 0
-#   numberReady: 1
+#   collisionCount: 0
+#   currentReplicas: 3
+#   currentRevision: honking-chimp-consul-server-768d7769f4
 #   observedGeneration: 1
-#   updatedNumberScheduled: 1
+#   readyReplicas: 3
+#   replicas: 3
+#   updateRevision: honking-chimp-consul-server-768d7769f4
