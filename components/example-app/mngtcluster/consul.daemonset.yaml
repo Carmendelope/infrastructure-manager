@@ -1,40 +1,40 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  annotations:
-    deprecated.daemonset.template.generation: "1"
-  creationTimestamp: 2018-10-01T08:54:46Z
+  # annotations:
+  #   deprecated.daemonset.template.generation: "1"
+  # creationTimestamp: 2018-10-01T08:54:46Z
   generation: 1
   labels:
     app: consul
-    chart: consul-0.1.0
-    heritage: Tiller
-    release: honking-chimp
-  name: honking-chimp-consul
-  namespace: zone-a
-  resourceVersion: "192939"
-  selfLink: /apis/apps/v1/namespaces/zone-a/daemonsets/honking-chimp-consul
-  uid: a5800f1d-c557-11e8-abb7-080027d62bfd
+    # chart: consul-0.1.0
+    # heritage: Tiller
+    release: test-20181011
+  name: test-20181011-consul
+  namespace: nalej
+  # resourceVersion: "192939"
+  # selfLink: /apis/apps/v1/namespaces/zone-a/daemonsets/honking-chimp-consul
+  # uid: a5800f1d-c557-11e8-abb7-080027d62bfd
 spec:
   revisionHistoryLimit: 10
   selector:
     matchLabels:
       app: consul
-      chart: consul-0.1.0
-      component: client
+      # chart: consul-0.1.0
+      # component: client
       hasDNS: "true"
-      release: honking-chimp
+      # release: honking-chimp
   template:
     metadata:
-      annotations:
-consul.hashicorp.com/connect-inject: "false"
-      creationTimestamp: null
+#       annotations:
+# consul.hashicorp.com/connect-inject: "false"
+#       creationTimestamp: null
       labels:
         app: consul
-        chart: consul-0.1.0
+        # chart: consul-0.1.0
         component: client
         hasDNS: "true"
-        release: honking-chimp
+        # release: honking-chimp
     spec:
       containers:
       - command:

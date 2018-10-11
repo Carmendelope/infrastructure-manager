@@ -1,19 +1,19 @@
 apiVersion: v1
 kind: Service
 metadata:
-  annotations:
-    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
-  creationTimestamp: 2018-10-01T08:54:46Z
+  # annotations:
+  #   service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+  # creationTimestamp: 2018-10-01T08:54:46Z
   labels:
     app: consul
-    chart: consul-0.1.0
-    heritage: Tiller
-    release: honking-chimp
-  name: honking-chimp-consul-server
-  namespace: zone-a
-  resourceVersion: "85267"
-  selfLink: /api/v1/namespaces/zone-a/services/honking-chimp-consul-server
-  uid: a57b3fd1-c557-11e8-abb7-080027d62bfd
+    # chart: consul-0.1.0
+    # heritage: Tiller
+    release: test-20181011
+  name: test-20181011-consul-server
+  namespace: nalej
+  # resourceVersion: "85267"
+  # selfLink: /api/v1/namespaces/zone-a/services/honking-chimp-consul-server
+  # uid: a57b3fd1-c557-11e8-abb7-080027d62bfd
 spec:
   clusterIP: None
   ports:
@@ -53,7 +53,7 @@ spec:
   selector:
     app: consul
     component: server
-    release: honking-chimp
+    release: test-20181011
   sessionAffinity: None
   type: ClusterIP
 status:

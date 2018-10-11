@@ -2,10 +2,12 @@
  * Copyright (C) 2018 Nalej - All Rights Reserved
  */
 
+// This is an example of an executable command.
+
 package main
 
 import (
-	"github.com/nalej/golang-template/cmd/other-app/commands"
+	"github.com/nalej/golang-template/cmd/dns-server/commands"
 	"github.com/nalej/golang-template/version"
 )
 
