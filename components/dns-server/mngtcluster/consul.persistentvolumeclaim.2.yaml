@@ -11,12 +11,12 @@ metadata:
     app: consul
     # chart: consul-0.1.0
     component: server
-    # hasDNS: "true"
-    release: test-20181011
-  name: data-test-20181011-consul-server-2
+    hasDNS: "true"
+    release: dns-test
+  name: data-dns-test-consul-server-2
   namespace: nalej
   # resourceVersion: "85366"
-  # selfLink: /api/v1/namespaces/zone-a/persistentvolumeclaims/data-test-20181011-consul-server-0
+  # selfLink: /api/v1/namespaces/zone-a/persistentvolumeclaims/data-dns-test-consul-server-0
   # uid: a58795f4-c557-11e8-abb7-080027d62bfd
 spec:
   accessModes:
@@ -25,7 +25,7 @@ spec:
     requests:
       storage: 10Gi
   storageClassName: standard
-  volumeName: pvc-test-20181011-consul-server-2
+  volumeName: pvc-dns-test-consul-server-2
 # status:
 #   accessModes:
 #   - ReadWriteOnce

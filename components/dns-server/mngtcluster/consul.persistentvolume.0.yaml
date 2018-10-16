@@ -5,10 +5,12 @@ metadata:
 #     hostPathProvisionerIdentity: efdea504-c547-11e8-bd6e-080027d62bfd
     # pv.kubernetes.io/provisioned-by: k8s.io/minikube-hostpath
 #   creationTimestamp: 2018-10-01T08:54:46Z
-  name: pvc-test-20181011-consul-server-0
+  name: pvc-dns-test-consul-server-0
 #   resourceVersion: "85324"
 #   selfLink: /api/v1/persistentvolumes/pvc-a58795f4-c557-11e8-abb7-080027d62bfd
 #   uid: a5ca2c03-c557-11e8-abb7-080027d62bfd
+  labels:
+    type: local
 spec:
   accessModes:
   - ReadWriteOnce
@@ -17,12 +19,12 @@ spec:
   claimRef:
     apiVersion: v1
     kind: PersistentVolumeClaim
-    name: data-test-20181011-consul-server-0
+    name: data-dns-test-consul-server-0
     namespace: nalej
     # resourceVersion: "85284"
     # uid: a58795f4-c557-11e8-abb7-080027d62bfd
-  # hostPath:
-  #   path: /tmp/hostpath-provisioner/pvc-a58795f4-c557-11e8-abb7-080027d62bfd
-  #   type: ""
+  hostPath:
+    path: /tmp/hostpath-provisioner/pvc-dns-test-consul-server-0
+    type: ""
   persistentVolumeReclaimPolicy: Delete
   storageClassName: standard

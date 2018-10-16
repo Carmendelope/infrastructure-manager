@@ -6,8 +6,8 @@ metadata:
     app: consul
     # chart: consul-0.1.0
     # heritage: Tiller
-    release: test-20181011
-  name: test-20181011-consul-dns
+    release: dns-test
+  name: dns-test-consul-dns
   namespace: nalej
   # resourceVersion: "85265"
   # selfLink: /api/v1/namespaces/zone-a/services/honking-chimp-consul-dns
@@ -26,7 +26,7 @@ spec:
   selector:
     app: consul
     hasDNS: "true"
-    release: test-20181011
+    release: dns-test
   sessionAffinity: None
   type: ClusterIP
 # status:
