@@ -1,18 +1,12 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  # creationTimestamp: 2018-10-15T15:06:57Z
   generation: 1
   labels:
     app: consul
-    # chart: consul-0.1.0
-    # heritage: Tiller
     release: dns-test
   name: dns-test-consul-server
   namespace: nalej
-  # resourceVersion: "1341"
-  # selfLink: /apis/apps/v1/namespaces/ref/statefulsets/dns-test-consul-server
-  # uid: f5d78f2d-d08b-11e8-9503-08002766894b
 spec:
   podManagementPolicy: Parallel
   replicas: 3
@@ -20,7 +14,6 @@ spec:
   selector:
     matchLabels:
       app: consul
-      # chart: consul-0.1.0
       component: server
       hasDNS: "true"
       release: dns-test
@@ -147,11 +140,3 @@ spec:
           storage: 10Gi
     status:
       phase: Pending
-# status:
-#   collisionCount: 0
-#   currentReplicas: 3
-#   currentRevision: dns-test-consul-server-b7c47896
-#   observedGeneration: 1
-#   readyReplicas: 3
-#   replicas: 3
-#   updateRevision: dns-test-consul-server-b7c47896

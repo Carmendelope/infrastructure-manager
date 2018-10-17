@@ -1,14 +1,7 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-#   annotations:
-#     hostPathProvisionerIdentity: efdea504-c547-11e8-bd6e-080027d62bfd
-#     pv.kubernetes.io/provisioned-by: k8s.io/minikube-hostpath
-#   creationTimestamp: 2018-10-01T08:54:46Z
   name: pvc-dns-test-consul-server-2
-#   resourceVersion: "85324"
-#   selfLink: /api/v1/persistentvolumes/pvc-a58795f4-c557-11e8-abb7-080027d62bfd
-#   uid: a5ca2c03-c557-11e8-abb7-080027d62bfd
   labels:
     type: local
 spec:
@@ -21,8 +14,6 @@ spec:
     kind: PersistentVolumeClaim
     name: data-dns-test-consul-server-2
     namespace: nalej
-    # resourceVersion: "85284"
-    # uid: a58795f4-c557-11e8-abb7-080027d62bfd
   hostPath:
     path: /tmp/hostpath-provisioner/pvc-dns-test-consul-server-2
     type: ""
