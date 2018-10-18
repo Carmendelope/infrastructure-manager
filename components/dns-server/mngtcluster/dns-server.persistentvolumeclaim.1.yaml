@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  labels:
+    app: consul
+    component: server
+    hasDNS: "true"
+    release: dns-test
+  name: data-dns-server-1
+  namespace: nalej
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: standard
+  volumeName: pvc-dns-server-1

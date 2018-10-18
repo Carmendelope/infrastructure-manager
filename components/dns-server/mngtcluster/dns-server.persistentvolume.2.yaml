@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pvc-dns-server-2
+  labels:
+    type: local
+spec:
+  accessModes:
+  - ReadWriteOnce
+  capacity:
+    storage: 10Gi
+  claimRef:
+    apiVersion: v1
+    kind: PersistentVolumeClaim
+    name: data-dns-server-2
+    namespace: nalej
+  hostPath:
+    path: /tmp/hostpath-provisioner/pvc-dns-server-2
+    type: ""
+  persistentVolumeReclaimPolicy: Delete
+  storageClassName: standard

@@ -1,19 +1,14 @@
 apiVersion: v1
 kind: Service
 metadata:
-  # creationTimestamp: 2018-10-01T08:54:46Z
   labels:
     app: consul
-    # chart: consul-0.1.0
-    # heritage: Tiller
-    release: dns-test
+    release: dns-server
+    cluster: management
+    component: dns-server
   name: dns-test-consul-dns
   namespace: nalej
-  # resourceVersion: "85265"
-  # selfLink: /api/v1/namespaces/zone-a/services/honking-chimp-consul-dns
-  # uid: a57a42ab-c557-11e8-abb7-080027d62bfd
 spec:
-  # clusterIP: 10.97.123.164
   ports:
   - name: dns-tcp
     port: 53
@@ -26,8 +21,6 @@ spec:
   selector:
     app: consul
     hasDNS: "true"
-    release: dns-test
+    release: dns-server
   sessionAffinity: None
   type: ClusterIP
-# status:
-#   loadBalancer: {}

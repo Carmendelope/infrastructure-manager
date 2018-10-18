@@ -3,17 +3,13 @@ kind: Service
 metadata:
   annotations:
     service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
-  # creationTimestamp: 2018-10-01T08:54:46Z
   labels:
     app: consul
-    # chart: consul-0.1.0
-    # heritage: Tiller
-    release: dns-test
-  name: dns-test-consul-server
+    release: dns-server
+    cluster: management
+    component: dns-server
+  name: dns-server-consul-server
   namespace: nalej
-  # resourceVersion: "85267"
-  # selfLink: /api/v1/namespaces/zone-a/services/honking-chimp-consul-server
-  # uid: a57b3fd1-c557-11e8-abb7-080027d62bfd
 spec:
   clusterIP: None
   ports:
@@ -52,9 +48,7 @@ spec:
   publishNotReadyAddresses: true
   selector:
     app: consul
-    component: server
-    release: dns-test
+    component: dns-server
+    release: dns-server
   sessionAffinity: None
   type: ClusterIP
-# status:
-#   loadBalancer: {}

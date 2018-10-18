@@ -1,0 +1,18 @@
+apiVersion: policy/v1beta1
+kind: PodDisruptionBudget
+metadata:
+  generation: 1
+  labels:
+    app: consul
+    release: dns-server
+    cluster: management
+    component: dns-server
+  name: dns-server-consul-server
+  namespace: nalej
+spec:
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: consul
+      component: dns-server
+      release: dns-server

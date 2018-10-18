@@ -1,18 +1,14 @@
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  # creationTimestamp: 2018-10-15T15:06:57Z
   generation: 1
   labels:
     app: consul
-    # chart: consul-0.1.0
-    # heritage: Tiller
-    release: dns-test
-  name: dns-test-consul-server
+    release: dns-server
+    cluster: management
+    component: dns-server
+  name: dns-server-consul-server
   namespace: nalej
-  # resourceVersion: "1341"
-  # selfLink: /apis/apps/v1/namespaces/ref/statefulsets/dns-test-consul-server
-  # uid: f5d78f2d-d08b-11e8-9503-08002766894b
 spec:
   podManagementPolicy: Parallel
   replicas: 3
@@ -20,11 +16,10 @@ spec:
   selector:
     matchLabels:
       app: consul
-      # chart: consul-0.1.0
-      component: server
+      component: dns-server
       hasDNS: "true"
-      release: dns-test
-  serviceName: dns-test-consul-server
+      release: dns-server
+  serviceName: dns-server-consul-server
   template:
     metadata:
       annotations:
@@ -33,16 +28,16 @@ spec:
       labels:
         app: consul
         # chart: consul-0.1.0
-        component: server
+        component: dns-server
         hasDNS: "true"
-        release: dns-test
+        release: dns-server
     spec:
       containers:
       - command:
         - /bin/sh
         - -ec
         - |
-          CONSUL_FULLNAME="dns-test-consul"
+          CONSUL_FULLNAME="dns-server-consul"
 
           exec /bin/consul agent \
             -advertise="${POD_IP}" \
@@ -129,7 +124,7 @@ spec:
       volumes:
       - configMap:
           defaultMode: 420
-          name: dns-test-consul-server-config
+          name: dns-server-config
         name: config
   updateStrategy:
     rollingUpdate:
@@ -147,11 +142,3 @@ spec:
           storage: 10Gi
     status:
       phase: Pending
-# status:
-#   collisionCount: 0
-#   currentReplicas: 3
-#   currentRevision: dns-test-consul-server-b7c47896
-#   observedGeneration: 1
-#   readyReplicas: 3
-#   replicas: 3
-#   updateRevision: dns-test-consul-server-b7c47896
