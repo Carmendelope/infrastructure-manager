@@ -5,8 +5,10 @@ metadata:
     service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
   labels:
     app: consul
-    release: dns-test
-  name: dns-test-consul-server
+    release: dns-server
+    cluster: management
+    component: dns-server
+  name: dns-server-consul-server
   namespace: nalej
 spec:
   clusterIP: None
@@ -46,7 +48,7 @@ spec:
   publishNotReadyAddresses: true
   selector:
     app: consul
-    component: server
-    release: dns-test
+    component: dns-server
+    release: dns-server
   sessionAffinity: None
   type: ClusterIP

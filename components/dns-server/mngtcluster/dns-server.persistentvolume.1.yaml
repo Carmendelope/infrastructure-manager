@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: pvc-dns-test-consul-server-0
+  name: pvc-dns-server-1
   labels:
     type: local
 spec:
@@ -12,10 +12,10 @@ spec:
   claimRef:
     apiVersion: v1
     kind: PersistentVolumeClaim
-    name: data-dns-test-consul-server-0
+    name: data-dns-server-1
     namespace: nalej
   hostPath:
-    path: /tmp/hostpath-provisioner/pvc-dns-test-consul-server-0
+    path: /tmp/hostpath-provisioner/pvc-dns-server-1
     type: ""
   persistentVolumeReclaimPolicy: Delete
   storageClassName: standard

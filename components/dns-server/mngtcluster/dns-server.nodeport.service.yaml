@@ -3,15 +3,17 @@ kind: Service
 metadata:
   labels:
     app: consul
-    release: dns-test
+    release: dns-server
+    cluster: management
+    component: dns-server
   name: dns-nodeport
   namespace: nalej
 spec:
   type: NodePort
   selector:
     app: consul
-    component: server
-    release: dns-test
+    component: dns-server
+    release: dns-server
   ports:
   - port: 53
     targetPort: 8600

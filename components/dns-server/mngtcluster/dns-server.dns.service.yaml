@@ -3,7 +3,9 @@ kind: Service
 metadata:
   labels:
     app: consul
-    release: dns-test
+    release: dns-server
+    cluster: management
+    component: dns-server
   name: dns-test-consul-dns
   namespace: nalej
 spec:
@@ -19,6 +21,6 @@ spec:
   selector:
     app: consul
     hasDNS: "true"
-    release: dns-test
+    release: dns-server
   sessionAffinity: None
   type: ClusterIP

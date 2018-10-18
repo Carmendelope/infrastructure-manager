@@ -3,8 +3,10 @@ kind: Service
 metadata:
   labels:
     app: consul
-    release: dns-test
-  name: dns-test-consul-ui
+    release: dns-server
+    cluster: management
+    component: dns-server
+  name: dns-server-ui
   namespace: nalej
 spec:
   ports:
@@ -14,7 +16,7 @@ spec:
     targetPort: 8500
   selector:
     app: consul
-    component: server
-    release: dns-test
+    component: dns-server
+    release: dns-server
   sessionAffinity: None
   type: ClusterIP

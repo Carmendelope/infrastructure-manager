@@ -4,13 +4,15 @@ metadata:
   generation: 1
   labels:
     app: consul
-    release: dns-test
-  name: dns-test-consul-server
+    release: dns-server
+    cluster: management
+    component: dns-server
+  name: dns-server-consul-server
   namespace: nalej
 spec:
   maxUnavailable: 0
   selector:
     matchLabels:
       app: consul
-      component: server
-      release: dns-test
+      component: dns-server
+      release: dns-server

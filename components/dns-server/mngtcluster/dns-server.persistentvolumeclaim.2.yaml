@@ -6,7 +6,7 @@ metadata:
     component: server
     hasDNS: "true"
     release: dns-test
-  name: data-dns-test-consul-server-1
+  name: data-dns-server-2
   namespace: nalej
 spec:
   accessModes:
@@ -15,4 +15,4 @@ spec:
     requests:
       storage: 10Gi
   storageClassName: standard
-  volumeName: pvc-dns-test-consul-server-1
+  volumeName: pvc-dns-server-2

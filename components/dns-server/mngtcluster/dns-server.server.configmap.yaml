@@ -5,6 +5,8 @@ kind: ConfigMap
 metadata:
   labels:
     app: consul
-    release: dns-test
-  name: dns-test-consul-server-config
+    release: dns-server
+    cluster: management
+    component: dns-server
+  name: dns-server-config
   namespace: nalej
