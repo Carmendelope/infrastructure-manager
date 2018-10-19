@@ -1,0 +1,17 @@
+kind: Service
+apiVersion: v1
+metadata:
+  name: infrastructure-manager
+  namespace: nalej
+  labels:
+    cluster: management
+    component: infrastructure-manager
+spec:
+  selector:
+    cluster: management
+    component: infrastructure-manager
+  type: ClusterIP
+  ports:
+  - protocol: TCP
+    port: 8081
+    targetPort: 8081

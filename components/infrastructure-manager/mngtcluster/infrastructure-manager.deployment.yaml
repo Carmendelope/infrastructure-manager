@@ -1,0 +1,33 @@
+###
+# Application example
+###
+
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  labels:
+    cluster: management
+    component: infrastructure-manager
+  name: infrastructure-manager
+  namespace: nalej
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      cluster: management
+      component: infrastructure-manager
+  template:
+    metadata:
+      labels:
+        cluster: management
+        component: infrastructure-manager
+    spec:
+      containers:
+      - name: infrastructure-manager
+        image: nalej/infrastructure-manager:VERSION
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          runAsUser: 2000
+      imagePullSecrets:
+      - name: myregistrykey
