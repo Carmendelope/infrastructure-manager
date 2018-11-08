@@ -33,6 +33,7 @@ func init() {
 	runCmd.PersistentFlags().StringVar(&config.ProvisionerAddress, "provisionerAddress", "localhost:8930",
 		"Infrastructure Manager address (host:port)")
 	runCmd.PersistentFlags().StringVar(&config.InstallerAddress, "installerAddress", "localhost:8900",
-		"Applications Manager address (host:port)")
+		"Installer address (host:port)")
+	runCmd.PersistentFlags().StringVar(&config.TempDir, "tempDir", "", "Temporal directory for install related files")
 	rootCmd.AddCommand(runCmd)
 }
