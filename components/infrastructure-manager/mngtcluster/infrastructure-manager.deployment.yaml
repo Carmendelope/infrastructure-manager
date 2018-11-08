@@ -27,7 +27,19 @@ spec:
       - name: infrastructure-manager
         image: nalej/infrastructure-manager:VERSION
         imagePullPolicy: IfNotPresent
+        args:
+        - "run"
+        - "--debug"
+        - "--systemModelAddress=system-model.nalej:8800"
+        - "--installerAddress=installer.nalej:8900"
+        - "--tempDir=/tmp/nalej"
+        volumeMounts:
+        - name: temp-dir
+          mountPath: "/tmp/nalej"
         securityContext:
           runAsUser: 2000
+      volumes:
+      - name: temp-dir
+        emptyDir: {}
       imagePullSecrets:
       - name: myregistrykey
