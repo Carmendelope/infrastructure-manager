@@ -15,12 +15,12 @@ spec:
     component: dns-server
     release: dns-server
   ports:
-  - port: 53
+  - port: 8600
     targetPort: 8600
     nodePort: 30053
     protocol: TCP
     name: dns-tcp
-  - port: 53
+  - port: 8600
     targetPort: 8600
     nodePort: 30053
     protocol: UDP
