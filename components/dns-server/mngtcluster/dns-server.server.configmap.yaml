@@ -1,6 +1,8 @@
 apiVersion: v1
 data:
-  extra-from-values.json: '{}'
+  extra-from-values.json: '{
+    	"domain": "nalej"
+  }'
 kind: ConfigMap
 metadata:
   labels:

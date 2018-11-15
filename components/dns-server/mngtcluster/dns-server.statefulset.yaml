@@ -47,7 +47,7 @@ spec:
             -config-dir=/consul/config \
             -datacenter=dc1 \
             -data-dir=/consul/data \
-            -domain=consul \
+            -domain=nalej \
             -hcl="connect { enabled = true }" \
             -ui \
             -retry-join=${CONSUL_FULLNAME}-server-0.${CONSUL_FULLNAME}-server.${NAMESPACE}.svc \

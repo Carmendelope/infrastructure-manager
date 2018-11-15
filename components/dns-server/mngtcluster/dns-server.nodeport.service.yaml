@@ -17,11 +17,17 @@ spec:
   ports:
   - port: 8600
     targetPort: 8600
-    nodePort: 30053
+    nodePort: 30600
     protocol: TCP
     name: dns-tcp
   - port: 8600
     targetPort: 8600
-    nodePort: 30053
+    nodePort: 30600
     protocol: UDP
     name: dns-udp
+  # HTTP API
+  - port: 8500
+    targetPort: 8500
+    nodePort: 30500
+    protocol: TCP
+    name: consul-gui
