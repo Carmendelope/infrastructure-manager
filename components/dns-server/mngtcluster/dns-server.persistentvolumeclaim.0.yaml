@@ -5,7 +5,7 @@ metadata:
     app: consul
     component: server
     hasDNS: "true"
-    release: dns-test
+    release: dns-server
   name: data-dns-server-0
   namespace: nalej
 spec:

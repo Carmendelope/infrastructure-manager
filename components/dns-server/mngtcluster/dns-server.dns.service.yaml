@@ -6,7 +6,7 @@ metadata:
     release: dns-server
     cluster: management
     component: dns-server
-  name: dns-test-consul-dns
+  name: dns-server-consul-dns
   namespace: nalej
 spec:
   ports:
