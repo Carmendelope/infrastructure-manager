@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
       - name: infrastructure-manager
-        image: nalej/infrastructure-manager:VERSION
+        image: nalejregistry.azurecr.io/nalej/infrastructure-manager:VERSION
         imagePullPolicy: IfNotPresent
         args:
         - "run"
@@ -42,4 +42,4 @@ spec:
       - name: temp-dir
         emptyDir: {}
       imagePullSecrets:
-      - name: myregistrykey
+      - name: nalej-registry
