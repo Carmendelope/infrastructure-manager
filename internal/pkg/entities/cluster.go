@@ -13,6 +13,7 @@ type Cluster struct {
 	Name string
 	Description string
 	Hostname string
+	ControlPlaneHostname string
 	Nodes [] Node
 }
 
