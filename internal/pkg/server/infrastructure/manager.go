@@ -161,6 +161,10 @@ func (m * Manager) getOrCreateCluster(installRequest *grpc_installer_go.InstallR
 }
 
 func (m * Manager) InstallCluster(installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_manager_go.InstallResponse, error) {
+	log.Debug().Interface("request", installRequest).Msg("InstallCluster")
+	log.Debug().Str("platform",installRequest.TargetPlatform.String()).Msg("Target platform")
+	log.Debug().Bool("useKubeDNS", installRequest.UseKubeDns).Bool("useCoreDNS", installRequest.UseCoreDns).Msg("DNS options")
+	log.Debug().Str("hostname", installRequest.Hostname).Msg("Public App cluster hostname")
 	cluster, err := m.getOrCreateCluster(installRequest)
 	if err != nil {
 		return nil, conversions.ToGRPCError(err)
@@ -210,6 +214,32 @@ func (m * Manager) installCallback(
 	_, cErr := m.clusterClient.UpdateCluster(context.Background(), updateClusterRequest)
 	if cErr != nil {
 		log.Error().Str("err", conversions.ToDerror(err).DebugReport()).Msg("cannot update system model")
+		return
+	}
+
+	// Get the list of nodes
+	cID := &grpc_infrastructure_go.ClusterId{
+		OrganizationId:       organizationID,
+		ClusterId:            clusterID,
+	}
+	nodes, nErr := m.nodesClient.ListNodes(context.Background(), cID)
+	if err != nil{
+		log.Error().Str("err", conversions.ToDerror(nErr).DebugReport()).Msg("cannot obtain the list of nodes in the cluster")
+		return
+	}
+	for _, n := range nodes.Nodes{
+		updateNodeRequest := &grpc_infrastructure_go.UpdateNodeRequest{
+			OrganizationId:       organizationID,
+			NodeId:               n.NodeId,
+			UpdateStatus:         true,
+			Status:               newStatus,
+		}
+		_, updateErr := m.nodesClient.UpdateNode(context.Background(), updateNodeRequest)
+		if updateErr != nil{
+			log.Error().Str("err", conversions.ToDerror(updateErr).DebugReport()).Msg("cannot update the node status")
+			return
+		}
+		log.Debug().Str("organizationID", organizationID).Str("nodeId", n.NodeId).Interface("newStatus", newStatus).Msg("Node status updated")
 	}
 }
 
