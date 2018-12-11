@@ -10,10 +10,6 @@ metadata:
   namespace: nalej
 spec:
   ports:
-  - name: dns-tcp
-    port: 53
-    protocol: TCP
-    targetPort: dns-tcp
   - name: dns-udp
     port: 53
     protocol: UDP
@@ -23,4 +19,4 @@ spec:
     hasDNS: "true"
     release: dns-server
   sessionAffinity: None
-  type: ClusterIP
+  type: LoadBalancer
