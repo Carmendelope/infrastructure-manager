@@ -106,7 +106,7 @@ func (dh * DiscoveryHelper) Discover() (* entities.Cluster, derrors.Error) {
 		KubernetesVersion: sv.String(),
 		Name: dh.ClusterName,
 		Description: "Autodiscovered cluster",
-		Hostname: host,
+		ControlPlaneHostname: host,
 		Nodes:             nodes,
 	}, nil
 }

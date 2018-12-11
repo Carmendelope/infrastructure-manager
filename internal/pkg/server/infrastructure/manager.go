@@ -69,6 +69,7 @@ func (m * Manager) addClusterToSM(installID string, organizationID string, clust
 		Name:                 cluster.Name,
 		Description:          cluster.Description,
 		Hostname:             cluster.Hostname,
+		ControlPlaneHostname: cluster.ControlPlaneHostname,
 	}
 	log.Debug().Str("name", toAdd.Name).Msg("Adding cluster to SM")
 	clusterAdded, err := m.clusterClient.AddCluster(context.Background(), toAdd)
@@ -119,7 +120,11 @@ func (m * Manager) discoverAndAddCluster(installRequest *grpc_installer_go.Insta
 	if err != nil {
 		return nil, err
 	}
-	log.Debug().Str("KubernetesVersion", discovered.KubernetesVersion).Int("numNodes", len(discovered.Nodes)).Msg("cluster has been discovered")
+	discovered.Hostname = installRequest.Hostname
+	log.Debug().Str("KubernetesVersion", discovered.KubernetesVersion).
+		Int("numNodes", len(discovered.Nodes)).
+		Str("ControlPlaneHostname", discovered.ControlPlaneHostname).
+		Str("hostname", discovered.Hostname).Msg("cluster has been discovered")
 	// Add cluster and nodes to the system model.
 	return m.addClusterToSM(installRequest.InstallId, installRequest.OrganizationId, *discovered)
 }
