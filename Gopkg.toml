@@ -8,7 +8,7 @@
 
 [[constraint]]
     name="github.com/nalej/grpc-installer-go"
-    version="v0.0.5"
+    version="v0.0.29"
 
 [[constraint]]
     name="github.com/nalej/grpc-infrastructure-go"
