@@ -2,7 +2,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: infrastructure-manager
-  namespace: nalej
+  namespace: __NPH_NAMESPACE
   labels:
     cluster: management
     component: infrastructure-manager
