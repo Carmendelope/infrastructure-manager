@@ -9,14 +9,16 @@ import (
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-installer-go"
 	"github.com/nalej/grpc-organization-go"
+	kValidation "k8s.io/apimachinery/pkg/util/validation"
+	"strings"
 )
 
 const emptyRequestId = "request_id cannot be empty"
 const emptyOrganizationId = "organization_id cannot be empty"
 const emptyClusterId = "cluster_id cannot be empty"
-const emptyEmail = "email cannot be empty"
+const emptyNodeId = "node_id cannot be empty"
 
-
+// ValidOrganizationId checks that an organization identifier has been specified.
 func ValidOrganizationId(organizationID *grpc_organization_go.OrganizationId) derrors.Error {
 	if organizationID.OrganizationId == "" {
 		return derrors.NewInvalidArgumentError(emptyOrganizationId)
@@ -24,6 +26,7 @@ func ValidOrganizationId(organizationID *grpc_organization_go.OrganizationId) de
 	return nil
 }
 
+// ValidClusterId checks that an organization and cluster identifiers are present.
 func ValidClusterId(clusterID *grpc_infrastructure_go.ClusterId) derrors.Error {
 	if clusterID.OrganizationId == "" {
 		return derrors.NewInvalidArgumentError(emptyOrganizationId)
@@ -34,6 +37,8 @@ func ValidClusterId(clusterID *grpc_infrastructure_go.ClusterId) derrors.Error {
 	return nil
 }
 
+// ValidInstallRequest checks that the install request for a new cluster contains all the required
+// credentials to proceeded with the installation.
 func ValidInstallRequest(installRequest *grpc_installer_go.InstallRequest) derrors.Error {
 	if installRequest.OrganizationId == "" {
 		return derrors.NewInvalidArgumentError(emptyOrganizationId)
@@ -75,10 +80,12 @@ func ValidInstallRequest(installRequest *grpc_installer_go.InstallRequest) derro
 
 }
 
+// ValidRemoveClusterRequest checks that a Cluster is specified.
 func ValidRemoveClusterRequest(removeClusterRequest *grpc_infrastructure_go.RemoveClusterRequest) derrors.Error {
 	return derrors.NewUnimplementedError("ValidRemoveClusterRequest")
 }
 
+// ValidRemoveNodesRequest checks that the request specifies the organization and the list of nodes.
 func ValidRemoveNodesRequest(removeNodesRequest *grpc_infrastructure_go.RemoveNodesRequest) derrors.Error {
 	if removeNodesRequest.RequestId == "" {
 		return derrors.NewInvalidArgumentError(emptyRequestId)
@@ -92,4 +99,49 @@ func ValidRemoveNodesRequest(removeNodesRequest *grpc_infrastructure_go.RemoveNo
 	return nil
 }
 
+// ValidLabels checks that labels conform to the Kubernetes standard.
+func ValidLabels(labels map[string]string) derrors.Error{
+	for _, v := range labels{
+		validationErrors := kValidation.IsValidLabelValue(v)
+		if len(validationErrors) != 0{
+			return derrors.NewInvalidArgumentError(strings.Join(validationErrors, ", "))
+		}
+	}
+	return nil
+}
 
+// ValidUpdateClusterRequest validates the request for updating the information of a node. Notice that
+// empty values on updateAttribute operations are not checked as the user may want those to become empty.
+func ValidUpdateClusterRequest(request * grpc_infrastructure_go.UpdateClusterRequest) derrors.Error {
+	if request.OrganizationId == "" {
+		return derrors.NewInvalidArgumentError(emptyOrganizationId)
+	}
+	if request.ClusterId == "" {
+		return derrors.NewInvalidArgumentError(emptyClusterId)
+	}
+	if request.AddLabels {
+		validLabels := ValidLabels(request.Labels)
+		if validLabels != nil{
+			return validLabels
+		}
+	}
+	return nil
+}
+
+// ValidaUpdateNodeRequest validates the request for updating the information of a node. Notice that
+// empty values on updateAttribute operations are not checked as the user may want those to become empty.
+func ValidUpdateNodeRequest(request * grpc_infrastructure_go.UpdateNodeRequest) derrors.Error {
+	if request.OrganizationId == "" {
+		return derrors.NewInvalidArgumentError(emptyOrganizationId)
+	}
+	if request.NodeId != "" {
+		return derrors.NewInvalidArgumentError(emptyNodeId)
+	}
+	if request.AddLabels {
+		validLabels := ValidLabels(request.Labels)
+		if validLabels != nil{
+			return validLabels
+		}
+	}
+	return nil
+}

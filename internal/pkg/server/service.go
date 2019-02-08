@@ -10,7 +10,6 @@ import (
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
-	"github.com/nalej/grpc-utils/pkg/tools"
 	"github.com/nalej/infrastructure-manager/internal/pkg/server/infrastructure"
 	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
@@ -21,14 +20,14 @@ import (
 // Service structure with the configuration and the gRPC server.
 type Service struct {
 	Configuration Config
-	Server * tools.GenericGRPCServer
+	Server * grpc.Server
 }
 
 // NewService creates a new system model service.
 func NewService(conf Config) *Service {
 	return &Service{
 		conf,
-		tools.NewGenericGRPCServer(uint32(conf.Port)),
+		grpc.NewServer(),
 	}
 }
 
@@ -77,14 +76,12 @@ func (s *Service) Run() error {
 	manager := infrastructure.NewManager(s.Configuration.TempDir, clients.ClusterClient, clients.NodesClient, clients.InstallerClient)
 	handler := infrastructure.NewHandler(manager)
 
-	grpcServer := grpc.NewServer()
-
-	grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(grpcServer, handler)
+	grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(s.Server, handler)
 
 	// Register reflection service on gRPC server.
-	reflection.Register(grpcServer)
+	reflection.Register(s.Server)
 	log.Info().Int("port", s.Configuration.Port).Msg("Launching gRPC server")
-	if err := grpcServer.Serve(lis); err != nil {
+	if err := s.Server.Serve(lis); err != nil {
 		log.Fatal().Errs("failed to serve: %v", []error{err})
 	}
 	return nil

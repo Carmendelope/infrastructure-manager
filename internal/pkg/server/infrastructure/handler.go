@@ -52,6 +52,16 @@ func (h *Handler) ListClusters(ctx context.Context, organizationID *grpc_organiz
 	return h.Manager.ListClusters(organizationID)
 }
 
+// UpdateCluster allows the user to update the information of a cluster.
+func (h *Handler) UpdateCluster(ctx context.Context, request *grpc_infrastructure_go.UpdateClusterRequest) (*grpc_infrastructure_go.Cluster, error){
+	err := entities.ValidUpdateClusterRequest(request)
+	if err != nil {
+		return nil, conversions.ToGRPCError(err)
+	}
+	return h.Manager.UpdateCluster(request)
+}
+
+
 // DrainCluster reschedules the services deployed in a given cluster.
 func (h *Handler) DrainCluster(ctx context.Context, clusterID *grpc_infrastructure_go.ClusterId) (*grpc_common_go.Success, error){
 	err := entities.ValidClusterId(clusterID)
@@ -79,6 +89,16 @@ func (h *Handler) RemoveCluster(ctx context.Context, removeClusterRequest *grpc_
 	}
 	return h.Manager.RemoveCluster(removeClusterRequest)
 }
+
+// UpdateNode allows the user to update the information of a node.
+func (h *Handler) UpdateNode(ctx context.Context, request *grpc_infrastructure_go.UpdateNodeRequest) (*grpc_infrastructure_go.Node, error){
+	err := entities.ValidUpdateNodeRequest(request)
+	if err != nil {
+		return nil, conversions.ToGRPCError(err)
+	}
+	return h.Manager.UpdateNode(request)
+}
+
 
 // ListNodes obtains a list of nodes in a cluster.
 func (h *Handler) ListNodes(ctx context.Context, clusterID *grpc_infrastructure_go.ClusterId) (*grpc_infrastructure_go.NodeList, error){
