@@ -253,6 +253,11 @@ func (m * Manager) ListClusters(organizationID *grpc_organization_go.Organizatio
 	return m.clusterClient.ListClusters(context.Background(), organizationID)
 }
 
+// UpdateCluster allows the user to update the information of a cluster.
+func (m *Manager) UpdateCluster(request *grpc_infrastructure_go.UpdateClusterRequest) (*grpc_infrastructure_go.Cluster, error) {
+	return m.clusterClient.UpdateCluster(context.Background(), request)
+}
+
 // DrainCluster reschedules the services deployed in a given cluster.
 func (m * Manager) DrainCluster(clusterID *grpc_infrastructure_go.ClusterId) (*grpc_common_go.Success, error){
 	return nil, derrors.NewUnimplementedError("DrainCluster is not implemented yet")
@@ -267,6 +272,21 @@ func (m * Manager) CordonCluster(clusterID *grpc_infrastructure_go.ClusterId) (*
 // of running applications.
 func (m * Manager) RemoveCluster(removeClusterRequest *grpc_infrastructure_go.RemoveClusterRequest) (*grpc_common_go.Success, error){
 	return nil, derrors.NewUnimplementedError("RemoveCluster is not implemented yet")
+}
+
+
+// UpdateNode allows the user to update the information of a node.
+func (m * Manager) UpdateNode(request *grpc_infrastructure_go.UpdateNodeRequest) (*grpc_infrastructure_go.Node, error) {
+	updated, err := m.nodesClient.UpdateNode(context.Background(), request)
+	if err != nil{
+		return nil, err
+	}
+	// TODO Update the labels in Kubernetes. A new proto should be added in the app cluster api to pass that information
+	log.Warn().Str("organizationId", updated.OrganizationId).
+		Str("nodeId", updated.NodeId).
+		Str("clusterId", updated.ClusterId).
+		Msg("node labels have not been updated in kubernetes")
+	return updated, err
 }
 
 // ListNodes obtains a list of nodes in a cluster.
