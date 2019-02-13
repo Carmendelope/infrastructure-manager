@@ -67,7 +67,6 @@ func (m * Manager) addClusterToSM(installID string, organizationID string, clust
 		RequestId:            installID,
 		OrganizationId:       organizationID,
 		Name:                 cluster.Name,
-		Description:          cluster.Description,
 		Hostname:             cluster.Hostname,
 		ControlPlaneHostname: cluster.ControlPlaneHostname,
 	}
