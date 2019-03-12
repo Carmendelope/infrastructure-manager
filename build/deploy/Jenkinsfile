@@ -1,0 +1,48 @@
+String packageName = "infrastructure-manager"
+String packagePath = "src/github.com/nalej/" + packageName
+String yamlPath = packagePath + "/bin/yaml/mngtcluster"
+String[] appsList = [
+    "infrastructure-manager"
+]
+
+pipeline {
+    agent { node { label 'k8s' } }
+    parameters {
+        string(name: "namespace", description: "Kubernetes namespace where it will be deployed", defaultValue: "nalej")
+    }
+    options {
+        checkoutToSubdirectory("${packagePath}")
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+
+    stages {
+        stage("Render YAML files") {
+            steps { container("kubectl") { stepRenderK8SYAMLFiles packagePath, yamlPath, appsList, params.namespace } }
+        }
+        stage("Create Kubernetes resources") {
+            steps { container("kubectl") { stepCreateK8SResources yamlPath } }
+        }
+        stage("Check deploy is ready") {
+            steps {
+                container("kubectl") {
+                    timeout(10) {
+                        waitUntil {
+                            script {
+                                def k8sGet = new org.daisho.k8s.Get()
+                                expected = k8sGet.filterByJSONPath(params.namespace, "deployment", "infrastructure-manager", "'{.spec.replicas}'")
+                                ready = k8sGet.filterByJSONPath(params.namespace, "deployment", "infrastructure-manager", "'{.status.readyReplicas}'")
+                                echo "Expected: ${expected}"
+                                echo "Ready: ${ready}"
+                                ok = (ready == expected)
+                                if (!ok) {
+                                    sleep(10)
+                                }
+                                return ok
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
