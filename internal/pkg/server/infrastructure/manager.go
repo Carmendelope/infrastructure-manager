@@ -232,6 +232,8 @@ func (m * Manager) installCallback(
 			NodeId:               n.NodeId,
 			UpdateStatus:         true,
 			Status:               newStatus,
+			UpdateState:          true,
+			State:                entities.InstallStateToNodeState(lastResponse.State),
 		}
 		_, updateErr := m.nodesClient.UpdateNode(context.Background(), updateNodeRequest)
 		if updateErr != nil{

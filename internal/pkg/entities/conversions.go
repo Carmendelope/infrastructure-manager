@@ -23,3 +23,18 @@ func StateToStatus(state grpc_installer_go.InstallProgress) grpc_infrastructure_
 	}
 	return newStatus
 }
+
+func InstallStateToNodeState (state grpc_installer_go.InstallProgress) grpc_infrastructure_go.NodeState {
+	var newState grpc_infrastructure_go.NodeState
+	switch state {
+	case grpc_installer_go.InstallProgress_REGISTERED:
+		newState = grpc_infrastructure_go.NodeState_ASSIGNED
+	case grpc_installer_go.InstallProgress_IN_PROGRESS:
+		newState = grpc_infrastructure_go.NodeState_ASSIGNED
+	case grpc_installer_go.InstallProgress_FINISHED:
+		newState = grpc_infrastructure_go.NodeState_ASSIGNED
+	case grpc_installer_go.InstallProgress_ERROR:
+		newState = grpc_infrastructure_go.NodeState_UNREGISTERED
+	}
+	return newState
+}
