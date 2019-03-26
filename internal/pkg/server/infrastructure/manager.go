@@ -162,7 +162,6 @@ func (m * Manager) getOrCreateCluster(installRequest *grpc_installer_go.InstallR
 func (m * Manager) InstallCluster(installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_manager_go.InstallResponse, error) {
 	log.Debug().Interface("request", installRequest).Msg("InstallCluster")
 	log.Debug().Str("platform",installRequest.TargetPlatform.String()).Msg("Target platform")
-	log.Debug().Bool("useKubeDNS", installRequest.UseKubeDns).Bool("useCoreDNS", installRequest.UseCoreDns).Msg("DNS options")
 	log.Debug().Str("hostname", installRequest.Hostname).Msg("Public App cluster hostname")
 	cluster, err := m.getOrCreateCluster(installRequest)
 	if err != nil {
