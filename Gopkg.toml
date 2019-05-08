@@ -1,38 +1,38 @@
 [[constraint]]
     name="github.com/nalej/derrors"
-    version="v2.0.0"
+    version="=v2.0.0"
 
 [[constraint]]
     name="github.com/nalej/grpc-common-go"
-    version="v0.0.30"
+    version="=v0.0.30"
 
 [[constraint]]
     name="github.com/nalej/grpc-installer-go"
-    version="v0.0.33"
+    version="=v0.0.34"
 
 [[constraint]]
     name="github.com/nalej/grpc-infrastructure-go"
-    version="=v0.0.33"
+    version="=v0.0.37"
 
 [[constraint]]
     name="github.com/nalej/grpc-infrastructure-manager-go"
-    version="v0.0.30"
+    version="=v0.0.32"
 
 [[constraint]]
     name="github.com/rs/zerolog"
-    version="v1.8.0"
+    version="=v1.8.0"
 
 [[constraint]]
     name="github.com/spf13/cobra"
-    version="v0.0.3"
+    version="=v0.0.3"
 
 [[constraint]]
     name="github.com/onsi/ginkgo"
-    version="v1.6.0"
+    version="=v1.6.0"
 
 [[constraint]]
     name="github.com/onsi/gomega"
-    version="v1.4.2"
+    version="=v1.4.2"
 
 [[override]]
   source = "https://github.com/fsnotify/fsnotify/archive/v1.4.7.tar.gz"
