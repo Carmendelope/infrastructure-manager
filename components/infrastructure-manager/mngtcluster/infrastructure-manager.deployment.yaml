@@ -33,6 +33,7 @@ spec:
         - "--systemModelAddress=system-model.__NPH_NAMESPACE:8800"
         - "--installerAddress=installer.__NPH_NAMESPACE:8900"
         - "--tempDir=/tmp/nalej"
+        - "--queueAddress=broker.__NPH_NAMESPACE:6650"
         volumeMounts:
         - name: temp-dir
           mountPath: "/tmp/nalej"

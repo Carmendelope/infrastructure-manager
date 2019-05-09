@@ -6,13 +6,17 @@ package infrastructure
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"github.com/nalej/derrors"
 	"github.com/nalej/grpc-common-go"
+	"github.com/nalej/grpc-conductor-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
 	"github.com/nalej/grpc-organization-go"
 	"github.com/nalej/grpc-utils/pkg/conversions"
+	"github.com/nalej/infrastructure-manager/internal/pkg/bus"
 	"github.com/nalej/infrastructure-manager/internal/pkg/entities"
 	"github.com/nalej/infrastructure-manager/internal/pkg/monitor"
 	"github.com/nalej/infrastructure-manager/internal/pkg/server/discovery/k8s"
@@ -23,7 +27,7 @@ import (
 )
 
 // Standard timeout for any operation done in this manager
-const InfastructureManagerTimeout = time.Second * 5
+const InfrastructureManagerTimeout = time.Second * 5
 
 // Manager structure with the remote clients required to coordinate infrastructure operations.
 type Manager struct {
@@ -31,6 +35,7 @@ type Manager struct {
 	clusterClient grpc_infrastructure_go.ClustersClient
 	nodesClient grpc_infrastructure_go.NodesClient
 	installerClient grpc_installer_go.InstallerClient
+	busManager *bus.BusManager
 }
 
 // NewManager creates a new manager.
@@ -38,12 +43,14 @@ func NewManager(
 	tempDir string,
 	clusterClient grpc_infrastructure_go.ClustersClient,
 	nodesClient grpc_infrastructure_go.NodesClient,
-	installerClient grpc_installer_go.InstallerClient) Manager {
+	installerClient grpc_installer_go.InstallerClient,
+	busManager *bus.BusManager) Manager {
 	return Manager{
 		tempPath: tempDir,
 		clusterClient:   clusterClient,
 		nodesClient:     nodesClient,
 		installerClient: installerClient,
+		busManager: busManager,
 	}
 }
 
@@ -264,19 +271,41 @@ func (m *Manager) UpdateCluster(request *grpc_infrastructure_go.UpdateClusterReq
 
 // DrainCluster reschedules the services deployed in a given cluster.
 func (m * Manager) DrainCluster(clusterID *grpc_infrastructure_go.ClusterId) (*grpc_common_go.Success, error){
-	return nil, derrors.NewUnimplementedError("DrainCluster is not implemented yet")
+	// Check this cluster is cordoned
+	ctx, cancel := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer cancel()
+	targetCluster, err := m.clusterClient.GetCluster(ctx,clusterID)
+	if err != nil {
+		return nil, err
+	}
+
+	if !targetCluster.Cordon {
+		err := errors.New(fmt.Sprintf("cluster %s must be cordoned before draining", targetCluster.ClusterId))
+		return nil, err
+	}
+
+	// send drain operation to the common bus
+	ctxDrain, cancelDrain := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer cancelDrain()
+	msg := &grpc_conductor_go.DrainClusterRequest{ClusterId:clusterID}
+	err = m.busManager.Send(ctxDrain, msg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &grpc_common_go.Success{},nil
 }
 
 // CordonCluster blocks the deployment of new services in a given cluster.
 func (m * Manager) CordonCluster(clusterID *grpc_infrastructure_go.ClusterId) (*grpc_common_go.Success, error){
-	ctx, cancel := context.WithTimeout(context.Background(), InfastructureManagerTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
 	defer cancel()
 	return m.clusterClient.CordonCluster(ctx, clusterID)
 }
 
 // CordonCluster unblocks the deployment of new services in a given cluster.
 func (m * Manager) UncordonCluster(clusterID *grpc_infrastructure_go.ClusterId) (*grpc_common_go.Success, error){
-	ctx, cancel := context.WithTimeout(context.Background(), InfastructureManagerTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
 	defer cancel()
 	return m.clusterClient.UncordonCluster(ctx, clusterID)
 }
