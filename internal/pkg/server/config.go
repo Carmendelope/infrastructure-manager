@@ -21,6 +21,8 @@ type Config struct {
 	ProvisionerAddress string
 	// ApplicationsManagerAddress with the host:port to connect to the Applications manager.
 	InstallerAddress string
+	// Message queue system address
+	QueueAddress string
 }
 
 func (conf * Config) Validate() derrors.Error {
@@ -36,6 +38,9 @@ func (conf * Config) Validate() derrors.Error {
 	if conf.InstallerAddress == "" {
 		return derrors.NewInvalidArgumentError("installerAddress must be set")
 	}
+	if conf.QueueAddress == "" {
+		return derrors.NewInvalidArgumentError("queueAddress must be set")
+	}
 	return nil
 }
 
@@ -46,4 +51,5 @@ func (conf *Config) Print() {
 	log.Info().Str("URL", conf.SystemModelAddress).Msg("System Model")
 	log.Info().Str("URL", conf.ProvisionerAddress).Msg("Provisioner")
 	log.Info().Str("URL", conf.InstallerAddress).Msg("Installer")
+	log.Info().Str("URL", conf.QueueAddress).Msg("Queue")
 }

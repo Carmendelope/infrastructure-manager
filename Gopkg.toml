@@ -3,6 +3,10 @@
     version="=v2.0.0"
 
 [[constraint]]
+    name="github.com/nalej/nalej-bus"
+    branch="master"
+
+[[constraint]]
     name="github.com/nalej/grpc-common-go"
     version="=v0.0.30"
 
@@ -16,7 +20,11 @@
 
 [[constraint]]
     name="github.com/nalej/grpc-infrastructure-manager-go"
-    version="=v0.0.32"
+    version="=v0.0.33"
+
+ [[constraint]]
+    name="github.com/nalej/grpc-conductor-go"
+    version="=v0.0.90"
 
 [[constraint]]
     name="github.com/rs/zerolog"

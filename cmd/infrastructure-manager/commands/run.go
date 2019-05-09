@@ -34,6 +34,8 @@ func init() {
 		"Infrastructure Manager address (host:port)")
 	runCmd.PersistentFlags().StringVar(&config.InstallerAddress, "installerAddress", "localhost:8900",
 		"Installer address (host:port)")
+	runCmd.PersistentFlags().StringVar(&config.QueueAddress, "queueAddress", "localhost:6650",
+		"Queue system address (host:port)")
 	runCmd.PersistentFlags().StringVar(&config.TempDir, "tempDir", "", "Temporal directory for install related files")
 	rootCmd.AddCommand(runCmd)
 }

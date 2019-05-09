@@ -10,8 +10,10 @@ import (
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
-	"github.com/nalej/infrastructure-manager/internal/pkg/server/infrastructure"
-	"github.com/rs/zerolog/log"
+    "github.com/nalej/infrastructure-manager/internal/pkg/bus"
+    "github.com/nalej/infrastructure-manager/internal/pkg/server/infrastructure"
+    "github.com/nalej/nalej-bus/pkg/bus/pulsar-comcast"
+    "github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"net"
@@ -72,8 +74,19 @@ func (s *Service) Run() error {
 		log.Fatal().Errs("failed to listen: %v", []error{err})
 	}
 
+	// Create a bus manager
+	log.Info().Msg("instantiate bus manager...")
+	queueClient := pulsar_comcast.NewClient(s.Configuration.QueueAddress)
+
+	busManager, err := bus.NewBusManager(queueClient, "InfrastructureManager")
+	if err != nil {
+	    log.Panic().Err(err).Msg("impossible to create bus manager instance")
+	    return err
+    }
+	log.Info().Msg("done")
+
 	// Create handlers
-	manager := infrastructure.NewManager(s.Configuration.TempDir, clients.ClusterClient, clients.NodesClient, clients.InstallerClient)
+	manager := infrastructure.NewManager(s.Configuration.TempDir, clients.ClusterClient, clients.NodesClient, clients.InstallerClient, busManager)
 	handler := infrastructure.NewHandler(manager)
 
 	grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(s.Server, handler)

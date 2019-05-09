@@ -115,7 +115,7 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 		conn, err := test.GetConn(*listener)
 		gomega.Expect(err).To(gomega.Succeed())
 
-		manager := NewManager(tempDir, clusterClient, nodesClient, installerClient)
+		manager := NewManager(tempDir, clusterClient, nodesClient, installerClient,nil)
 		handler := NewHandler(manager)
 		grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(server, handler)
 		test.LaunchServer(server, listener)
