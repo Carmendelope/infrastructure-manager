@@ -80,6 +80,15 @@ func (h *Handler) CordonCluster(ctx context.Context, clusterID *grpc_infrastruct
 	return h.Manager.CordonCluster(clusterID)
 }
 
+// UncordonCluster unblocks the deployment of new services in a given cluster.
+func (h *Handler) UncordonCluster(ctx context.Context, clusterID *grpc_infrastructure_go.ClusterId) (*grpc_common_go.Success, error){
+	err := entities.ValidClusterId(clusterID)
+	if err != nil {
+		return nil, conversions.ToGRPCError(err)
+	}
+	return h.Manager.UncordonCluster(clusterID)
+}
+
 // RemoveCluster removes a cluster from an organization. Notice that removing a cluster implies draining the cluster
 // of running applications.
 func (h *Handler) RemoveCluster(ctx context.Context, removeClusterRequest *grpc_infrastructure_go.RemoveClusterRequest) (*grpc_common_go.Success, error){

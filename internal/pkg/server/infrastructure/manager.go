@@ -19,7 +19,11 @@ import (
 	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"os"
+	"time"
 )
+
+// Standard timeout for any operation done in this manager
+const InfastructureManagerTimeout = time.Second * 5
 
 // Manager structure with the remote clients required to coordinate infrastructure operations.
 type Manager struct {
@@ -265,7 +269,16 @@ func (m * Manager) DrainCluster(clusterID *grpc_infrastructure_go.ClusterId) (*g
 
 // CordonCluster blocks the deployment of new services in a given cluster.
 func (m * Manager) CordonCluster(clusterID *grpc_infrastructure_go.ClusterId) (*grpc_common_go.Success, error){
-	return nil, derrors.NewUnimplementedError("CordonCluster is not implemented yet")
+	ctx, cancel := context.WithTimeout(context.Background(), InfastructureManagerTimeout)
+	defer cancel()
+	return m.clusterClient.CordonCluster(ctx, clusterID)
+}
+
+// CordonCluster unblocks the deployment of new services in a given cluster.
+func (m * Manager) UncordonCluster(clusterID *grpc_infrastructure_go.ClusterId) (*grpc_common_go.Success, error){
+	ctx, cancel := context.WithTimeout(context.Background(), InfastructureManagerTimeout)
+	defer cancel()
+	return m.clusterClient.UncordonCluster(ctx, clusterID)
 }
 
 // RemoveCluster removes a cluster from an organization. Notice that removing a cluster implies draining the cluster
