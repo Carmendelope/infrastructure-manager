@@ -10,22 +10,34 @@ import (
     "github.com/nalej/derrors"
     "github.com/nalej/nalej-bus/pkg/bus"
     "github.com/nalej/nalej-bus/pkg/queue/infrastructure/ops"
+    "github.com/nalej/nalej-bus/pkg/queue/infrastructure/events"
 )
 
 // Structures and operators designed to manipulate the queue operations for the infrastructure ops queue.
 
 type BusManager struct {
-    producer *ops.InfrastructureOpsProducer
+    producerOps *ops.InfrastructureOpsProducer
+    producerEvents *events.InfrastructureEventsProducer
 }
 
 func NewBusManager(client bus.NalejClient, name string) (*BusManager, derrors.Error) {
-    producer, err := ops.NewInfrastructureOpsProducer(client, name)
+    producerOps, err := ops.NewInfrastructureOpsProducer(client, name)
     if err != nil {
         return nil, err
     }
-    return &BusManager{producer: producer}, nil
+    producerEvents, err := events.NewInfrastructureEventsProducer(client,name)
+    if err != nil {
+        return nil, err
+    }
+    return &BusManager{producerOps: producerOps, producerEvents: producerEvents}, nil
 }
 
-func (b BusManager) Send(ctx context.Context, msg proto.Message) derrors.Error {
-    return b.producer.Send(ctx, msg)
+// Send a new operation
+func (b BusManager) SendOps(ctx context.Context, msg proto.Message) derrors.Error {
+    return b.producerOps.Send(ctx, msg)
+}
+
+// Send a new event
+func (b BusManager) SendEvents(ctx context.Context, msg proto.Message) derrors.Error {
+    return b.producerEvents.Send(ctx, msg)
 }
