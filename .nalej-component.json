@@ -1,0 +1,11 @@
+{
+    "language": "golang",
+    "application_list": [
+        "infrastructure-manager"
+    ],
+    "tools": [
+        "azure",
+        "k8s",
+        "docker"
+    ]
+}
