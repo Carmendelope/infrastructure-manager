@@ -266,7 +266,24 @@ func (m * Manager) ListClusters(organizationID *grpc_organization_go.Organizatio
 
 // UpdateCluster allows the user to update the information of a cluster.
 func (m *Manager) UpdateCluster(request *grpc_infrastructure_go.UpdateClusterRequest) (*grpc_infrastructure_go.Cluster, error) {
-	return m.clusterClient.UpdateCluster(context.Background(), request)
+	// update system model
+	ctx, cancel := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer cancel()
+
+	updateResult,updateErr := m.clusterClient.UpdateCluster(ctx, request)
+	if updateErr != nil {
+		return nil, updateErr
+	}
+	// if correct send it to the bus
+	ctxBus, cancelBus := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer cancelBus()
+	errBus := m.busManager.SendEvents(ctxBus, request)
+	if errBus != nil {
+		log.Error().Err(errBus).Msg("error in the bus when sending an update cluster request")
+		return nil, errBus
+	}
+	return updateResult, nil
+
 }
 
 // DrainCluster reschedules the services deployed in a given cluster.
@@ -288,8 +305,9 @@ func (m * Manager) DrainCluster(clusterID *grpc_infrastructure_go.ClusterId) (*g
 	ctxDrain, cancelDrain := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
 	defer cancelDrain()
 	msg := &grpc_conductor_go.DrainClusterRequest{ClusterId:clusterID}
-	err = m.busManager.Send(ctxDrain, msg)
+	err = m.busManager.SendOps(ctxDrain, msg)
 	if err != nil {
+		log.Error().Err(err).Msg("error in the bus when sending a drain cluster request")
 		return nil, err
 	}
 
