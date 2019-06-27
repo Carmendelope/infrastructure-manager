@@ -318,14 +318,28 @@ func (m * Manager) DrainCluster(clusterID *grpc_infrastructure_go.ClusterId) (*g
 func (m * Manager) CordonCluster(clusterID *grpc_infrastructure_go.ClusterId) (*grpc_common_go.Success, error){
 	ctx, cancel := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
 	defer cancel()
-	return m.clusterClient.CordonCluster(ctx, clusterID)
+	succ, err := m.clusterClient.CordonCluster(ctx, clusterID)
+	ctxe, cancele := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer cancele()
+	errBus := m.busManager.SendEvents(ctxe, &grpc_infrastructure_go.SetClusterStatusRequest{ClusterId: clusterID, Cordon: true})
+	if errBus != nil {
+		log.Error().Err(errBus).Msg("error sending set cluster request to queue")
+	}
+	return succ, err
 }
 
 // CordonCluster unblocks the deployment of new services in a given cluster.
 func (m * Manager) UncordonCluster(clusterID *grpc_infrastructure_go.ClusterId) (*grpc_common_go.Success, error){
 	ctx, cancel := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
 	defer cancel()
-	return m.clusterClient.UncordonCluster(ctx, clusterID)
+	succ, err := m.clusterClient.UncordonCluster(ctx, clusterID)
+	ctxe, cancele := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer cancele()
+	errBus := m.busManager.SendEvents(ctxe, &grpc_infrastructure_go.SetClusterStatusRequest{ClusterId: clusterID, Cordon: false})
+	if errBus != nil {
+		log.Error().Err(errBus).Msg("error sending set cluster request to queue")
+	}
+	return succ, err
 }
 
 // RemoveCluster removes a cluster from an organization. Notice that removing a cluster implies draining the cluster
