@@ -4,7 +4,7 @@
 
 [[constraint]]
     name="github.com/nalej/nalej-bus"
-    branch="master"
+    version="=v0.3.0"
 
 [[constraint]]
     name="github.com/nalej/grpc-common-go"
