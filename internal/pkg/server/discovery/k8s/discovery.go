@@ -10,10 +10,9 @@ import (
 	"github.com/nalej/derrors"
 	"github.com/nalej/infrastructure-manager/internal/pkg/entities"
 	"github.com/rs/zerolog/log"
+	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
-	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"net"
 	"net/url"
 )
 
@@ -97,16 +96,19 @@ func (dh * DiscoveryHelper) Discover() (* entities.Cluster, derrors.Error) {
 	if err != nil {
 		return nil, derrors.AsError(err, "cannot parse server into URL")
 	}
+
+	/*
 	host, _, err := net.SplitHostPort(u.Host)
 	if err != nil{
 		return nil, derrors.AsError(err, "cannot extract target cluster hostname")
 	}
+	*/
 
 	return &entities.Cluster{
 		KubernetesVersion: sv.String(),
 		Name: dh.ClusterName,
 		Description: "Autodiscovered cluster",
-		ControlPlaneHostname: host,
+		ControlPlaneHostname: u.Hostname(),
 		Nodes:             nodes,
 	}, nil
 }
