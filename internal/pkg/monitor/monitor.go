@@ -102,7 +102,7 @@ func (m * Monitor) updateState(state grpc_installer_go.InstallProgress, organiza
 		ClusterId:            clusterID,
 	})
 	if getErr != nil {
-		log.Error().Err(getErr).Msgf("unable to get cluster %s from %s", clusterID, organizationID)
+		log.Error().Err(getErr).Str("cluster id", clusterID).Str("organization id", organizationID).Msg("unable to get cluster")
 	}
 	updateClusterRequest := &grpc_infrastructure_go.UpdateClusterRequest{
 		OrganizationId:       m.installerResponse.OrganizationId,
