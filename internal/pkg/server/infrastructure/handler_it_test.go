@@ -14,6 +14,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
+	grpc_connectivity_manager_go "github.com/nalej/grpc-connectivity-manager-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
@@ -51,7 +52,7 @@ func checkClusterAndNodes(organizationID string, clusterID string, systemModelAd
 	}
 	cluster, err := clusterClient.GetCluster(context.Background(), cID)
 	gomega.Expect(err).To(gomega.Succeed())
-	gomega.Expect(cluster.Status).Should(gomega.Equal(grpc_infrastructure_go.InfraStatus_RUNNING))
+	gomega.Expect(cluster.ClusterStatus).Should(gomega.Equal(grpc_connectivity_manager_go.ClusterStatus_ONLINE))
 
 	nodesClient := grpc_infrastructure_go.NewNodesClient(smConn)
 	nodes, err := nodesClient.ListNodes(context.Background(), cID)
@@ -170,7 +171,7 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 				updated, err := client.GetCluster(context.Background(), clusterID)
 				gomega.Expect(err).To(gomega.Succeed())
 				log.Debug().Interface("updated", updated).Msg("cluster status")
-				finished = updated.Status == grpc_infrastructure_go.InfraStatus_RUNNING
+				finished = updated.ClusterStatus == grpc_connectivity_manager_go.ClusterStatus_ONLINE
 				if !finished{
 					time.Sleep(time.Second * 1)
 				}

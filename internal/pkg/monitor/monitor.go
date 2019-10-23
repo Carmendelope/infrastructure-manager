@@ -11,13 +11,15 @@ import (
 	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
 	"github.com/nalej/grpc-utils/pkg/conversions"
-	"github.com/nalej/infrastructure-manager/internal/pkg/entities"
 	"github.com/rs/zerolog/log"
 	"time"
 )
 
 // MaxConnFailures contains the number of communication failures allowed until the monitor exists.
-const MaxConnFailures = 5
+const (
+	MaxConnFailures = 5
+	DefaultTimeout =  2*time.Minute
+)
 
 // QueryDelay contains the polling interval to check the progress on the installer.
 const QueryDelay = time.Second * 15
@@ -80,7 +82,7 @@ func (m * Monitor) LaunchMonitor() {
 			}else{
 				if previousState != status.State {
 					previousState = status.State
-					m.updateState(status.State)
+					m.updateState(status.State, m.installerResponse.OrganizationId, m.installerResponse.OrganizationId)
 				}
 				time.Sleep(QueryDelay)
 			}
@@ -92,13 +94,21 @@ func (m * Monitor) LaunchMonitor() {
 }
 
 // updateState updates the status of a cluster based on the install progress.
-func (m * Monitor) updateState(state grpc_installer_go.InstallProgress) {
-	var newStatus = entities.StateToStatus(state)
+func (m * Monitor) updateState(state grpc_installer_go.InstallProgress, organizationID string, clusterID string) {
+	getCtx, getCancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer getCancel()
+	cluster, getErr := m.clusterClient.GetCluster(getCtx, &grpc_infrastructure_go.ClusterId{
+		OrganizationId:       organizationID,
+		ClusterId:            clusterID,
+	})
+	if getErr != nil {
+		log.Error().Err(getErr).Str("cluster id", clusterID).Str("organization id", organizationID).Msg("unable to get cluster")
+	}
 	updateClusterRequest := &grpc_infrastructure_go.UpdateClusterRequest{
 		OrganizationId:       m.installerResponse.OrganizationId,
 		ClusterId:            m.installerResponse.ClusterId,
 		UpdateStatus:         true,
-		Status:               newStatus,
+		Status:               cluster.ClusterStatus,
 	}
 	_, err := m.clusterClient.UpdateCluster(context.Background(), updateClusterRequest)
 	if err != nil {
