@@ -175,6 +175,33 @@ func (m * Manager) getOrCreateCluster(installRequest *grpc_installer_go.InstallR
 	return result, nil
 }
 
+// UpdateClusterState updates the state of a cluster in system model. The update is also sent to the bus
+// so that other components of the system can react to events such as new cluster becoming available.
+func (m *Manager) updateClusterState(organizationID string, clusterID string, newState grpc_infrastructure_go.ClusterState) derrors.Error{
+	updateRequest := &grpc_infrastructure_go.UpdateClusterRequest{
+		OrganizationId:             organizationID,
+		ClusterId:                  clusterID,
+		UpdateClusterState:         true,
+		State:                      newState,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer cancel()
+	_, err := m.clusterClient.UpdateCluster(ctx, updateRequest)
+	if err != nil{
+		return derrors.AsError(err, "cannot update cluster state")
+	}
+
+	// if correct send it to the bus
+	ctxBus, cancelBus := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer cancelBus()
+	errBus := m.busManager.SendEvents(ctxBus, updateRequest)
+	if errBus != nil {
+		log.Error().Err(errBus).Msg("error in the bus when sending an update cluster request")
+		return errBus
+	}
+	return nil
+}
+
 func (m * Manager) InstallCluster(installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_manager_go.InstallResponse, error) {
 	log.Debug().Interface("request", installRequest).Msg("InstallCluster")
 	log.Debug().Str("platform",installRequest.TargetPlatform.String()).Msg("Target platform")
@@ -187,7 +214,14 @@ func (m * Manager) InstallCluster(installRequest *grpc_installer_go.InstallReque
 		return nil, derrors.NewUnimplementedError("InstallBaseSystem not supported")
 	}
 	installRequest.ClusterId = cluster.ClusterId
-
+	// TODO Check precondition states on a cluster before triggering an install. This must be done once the provisioner
+	// path is ready.
+	// Transition the cluster to installing
+	err = m.updateClusterState(installRequest.OrganizationId, installRequest.ClusterId, grpc_infrastructure_go.ClusterState_INSTALL_IN_PROGRESS)
+	if err != nil{
+		log.Error().Str("trace", err.DebugReport()).Msg("cannot update cluster state")
+		return nil, err
+	}
 	log.Debug().Str("clusterID", installRequest.ClusterId).Msg("installing cluster")
 	installerResponse, iErr := m.installerClient.InstallCluster(context.Background(), installRequest)
 	if iErr != nil {
@@ -218,27 +252,16 @@ func (m * Manager) installCallback(
 		return
 	}
 
-	getCtx, getCancel := context.WithTimeout(context.Background(), DefaultTimeout)
-	defer getCancel()
-	cluster, getErr := m.clusterClient.GetCluster(getCtx, &grpc_infrastructure_go.ClusterId{
-		OrganizationId:       organizationID,
-		ClusterId:            clusterID,
-	})
-	if getErr != nil {
-		log.Error().Err(getErr).Str("cluster id", clusterID).Str("organization id", organizationID).Msg("unable to get cluster")
+	newState := grpc_infrastructure_go.ClusterState_INSTALLED
+	if err != nil || lastResponse.State == grpc_installer_go.InstallProgress_ERROR {
+		newState = grpc_infrastructure_go.ClusterState_FAILURE
+		log.Warn().Str("installID", installID).Str("organizationID", organizationID).Str("clusterID", clusterID).Msg("installation failed")
 	}
-	updateClusterRequest := &grpc_infrastructure_go.UpdateClusterRequest{
-		OrganizationId:       organizationID,
-		ClusterId:            clusterID,
-		UpdateStatus:         true,
-		Status:               cluster.ClusterStatus,
+	err = m.updateClusterState(organizationID, clusterID, newState)
+	if err != nil{
+		log.Error().Msg("unable to update cluster state after install")
 	}
-	_, cErr := m.clusterClient.UpdateCluster(context.Background(), updateClusterRequest)
-	if cErr != nil {
-		log.Error().Str("err", conversions.ToDerror(err).DebugReport()).Msg("cannot update system model")
-		return
-	}
-
+	// TODO Refactor to update nodes accordingly.
 	// Get the list of nodes
 	cID := &grpc_infrastructure_go.ClusterId{
 		OrganizationId:       organizationID,

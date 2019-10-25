@@ -269,12 +269,12 @@
   version = "v0.0.14"
 
 [[projects]]
-  digest = "1:6d5af929ded3ee1f6d492ce0625fe038db2379a38cc15b2a0244d5869777643f"
+  digest = "1:5b1abc982ccfaeaf25e9b3dabde52d3095effb159be9d18d628d8b7b2aa8a6cc"
   name = "github.com/nalej/grpc-infrastructure-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "77f31816c5de01dabec7dd4f9438bffddc9e3a93"
-  version = "v0.0.44"
+  revision = "53a3f3ecbb7a6504a7c51c452645197ece09709b"
+  version = "v0.0.45"
 
 [[projects]]
   digest = "1:cfcf3f6a460d6703d78c5e64eda1cf701822f881c08a29cb2756a2fc10881150"
@@ -363,7 +363,7 @@
     "pkg/queue/infrastructure/ops",
   ]
   pruneopts = "UT"
-  revision = "69bde926441735c239bb4462de2b67e50ac7b54c"
+  revision = "f38ba70f4506ab9c1b958b6b5055763ffdc2bc80"
 
 [[projects]]
   digest = "1:42e29deef12327a69123b9cb2cb45fee4af5c12c2a23c6e477338279a052703f"
@@ -507,14 +507,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3fa58f7377e1d95d496db43dd3281ddcea4185eb46c6394f89fec1cfa4ec3244"
+  digest = "1:de0084adc1c0b8cf6fd192d7785b098b155ba355cbeec9ee361aea55b887ab9d"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "UT"
-  revision = "742c48ecaeb7c624c475e02f3eb0827ebb4970d4"
+  revision = "6c3a3bfe00aeca2b8685f04a482824367e7d2135"
 
 [[projects]]
   digest = "1:28deae5fe892797ff37a317b5bcda96d11d1c90dadd89f1337651df3bc4c586e"
@@ -555,11 +555,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:cdd088b35bbf78713a6861a44a1bbe97e581861b6b8835c7f2211bbeca3671f6"
+  digest = "1:a2f668c709f9078828e99cb1768cb02e876cb81030545046a32b54b2ac2a9ea8"
   name = "golang.org/x/time"
   packages = ["rate"]
   pruneopts = "UT"
-  revision = "c4c64cad1fd0a1a8dab2523e04e61d35308e131e"
+  revision = "555d28b269f0569763d25dbe1a237ae74c6bcc82"
 
 [[projects]]
   digest = "1:e0a1881f9e0564bebdeac98c75e59f07acdde6ed3a5396e0e613eaad31194866"
