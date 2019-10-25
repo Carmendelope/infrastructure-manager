@@ -76,7 +76,7 @@ func (s *Service) Run() error {
 
 	// Create a bus manager
 	log.Info().Msg("instantiate bus manager...")
-	queueClient := pulsar_comcast.NewClient(s.Configuration.QueueAddress)
+	queueClient := pulsar_comcast.NewClient(s.Configuration.QueueAddress, nil)
 
 	busManager, err := bus.NewBusManager(queueClient, "InfrastructureManager")
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"github.com/nalej/derrors"
 	"github.com/nalej/grpc-common-go"
 	"github.com/nalej/grpc-conductor-go"
+	grpc_connectivity_manager_go "github.com/nalej/grpc-connectivity-manager-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
@@ -26,8 +27,12 @@ import (
 	"time"
 )
 
-// Standard timeout for any operation done in this manager
-const InfrastructureManagerTimeout = time.Second * 5
+const (
+	// Default timeout
+	DefaultTimeout =  2*time.Minute
+	// Standard timeout for operations done in this manager
+	InfrastructureManagerTimeout = time.Second * 5
+)
 
 // Manager structure with the remote clients required to coordinate infrastructure operations.
 type Manager struct {
@@ -170,6 +175,33 @@ func (m * Manager) getOrCreateCluster(installRequest *grpc_installer_go.InstallR
 	return result, nil
 }
 
+// UpdateClusterState updates the state of a cluster in system model. The update is also sent to the bus
+// so that other components of the system can react to events such as new cluster becoming available.
+func (m *Manager) updateClusterState(organizationID string, clusterID string, newState grpc_infrastructure_go.ClusterState) derrors.Error{
+	updateRequest := &grpc_infrastructure_go.UpdateClusterRequest{
+		OrganizationId:             organizationID,
+		ClusterId:                  clusterID,
+		UpdateClusterState:         true,
+		State:                      newState,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer cancel()
+	_, err := m.clusterClient.UpdateCluster(ctx, updateRequest)
+	if err != nil{
+		return derrors.AsError(err, "cannot update cluster state")
+	}
+
+	// if correct send it to the bus
+	ctxBus, cancelBus := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer cancelBus()
+	errBus := m.busManager.SendEvents(ctxBus, updateRequest)
+	if errBus != nil {
+		log.Error().Err(errBus).Msg("error in the bus when sending an update cluster request")
+		return errBus
+	}
+	return nil
+}
+
 func (m * Manager) InstallCluster(installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_manager_go.InstallResponse, error) {
 	log.Debug().Interface("request", installRequest).Msg("InstallCluster")
 	log.Debug().Str("platform",installRequest.TargetPlatform.String()).Msg("Target platform")
@@ -182,7 +214,14 @@ func (m * Manager) InstallCluster(installRequest *grpc_installer_go.InstallReque
 		return nil, derrors.NewUnimplementedError("InstallBaseSystem not supported")
 	}
 	installRequest.ClusterId = cluster.ClusterId
-
+	// TODO Check precondition states on a cluster before triggering an install. This must be done once the provisioner
+	// path is ready.
+	// Transition the cluster to installing
+	err = m.updateClusterState(installRequest.OrganizationId, installRequest.ClusterId, grpc_infrastructure_go.ClusterState_INSTALL_IN_PROGRESS)
+	if err != nil{
+		log.Error().Str("trace", err.DebugReport()).Msg("cannot update cluster state")
+		return nil, err
+	}
 	log.Debug().Str("clusterID", installRequest.ClusterId).Msg("installing cluster")
 	installerResponse, iErr := m.installerClient.InstallCluster(context.Background(), installRequest)
 	if iErr != nil {
@@ -213,19 +252,16 @@ func (m * Manager) installCallback(
 		return
 	}
 
-	var newStatus = entities.StateToStatus(lastResponse.State)
-	updateClusterRequest := &grpc_infrastructure_go.UpdateClusterRequest{
-		OrganizationId:       organizationID,
-		ClusterId:            clusterID,
-		UpdateStatus:         true,
-		Status:               newStatus,
+	newState := grpc_infrastructure_go.ClusterState_INSTALLED
+	if err != nil || lastResponse.State == grpc_installer_go.InstallProgress_ERROR {
+		newState = grpc_infrastructure_go.ClusterState_FAILURE
+		log.Warn().Str("installID", installID).Str("organizationID", organizationID).Str("clusterID", clusterID).Msg("installation failed")
 	}
-	_, cErr := m.clusterClient.UpdateCluster(context.Background(), updateClusterRequest)
-	if cErr != nil {
-		log.Error().Str("err", conversions.ToDerror(err).DebugReport()).Msg("cannot update system model")
-		return
+	err = m.updateClusterState(organizationID, clusterID, newState)
+	if err != nil{
+		log.Error().Msg("unable to update cluster state after install")
 	}
-
+	// TODO Refactor to update nodes accordingly.
 	// Get the list of nodes
 	cID := &grpc_infrastructure_go.ClusterId{
 		OrganizationId:       organizationID,
@@ -236,12 +272,13 @@ func (m * Manager) installCallback(
 		log.Error().Str("err", conversions.ToDerror(nErr).DebugReport()).Msg("cannot obtain the list of nodes in the cluster")
 		return
 	}
+
 	for _, n := range nodes.Nodes{
 		updateNodeRequest := &grpc_infrastructure_go.UpdateNodeRequest{
 			OrganizationId:       organizationID,
 			NodeId:               n.NodeId,
 			UpdateStatus:         true,
-			Status:               newStatus,
+			Status:               n.Status,
 			UpdateState:          true,
 			State:                entities.InstallStateToNodeState(lastResponse.State),
 		}
@@ -250,7 +287,7 @@ func (m * Manager) installCallback(
 			log.Error().Str("err", conversions.ToDerror(updateErr).DebugReport()).Msg("cannot update the node status")
 			return
 		}
-		log.Debug().Str("organizationID", organizationID).Str("nodeId", n.NodeId).Interface("newStatus", newStatus).Msg("Node status updated")
+		log.Debug().Str("organizationID", organizationID).Str("nodeId", n.NodeId).Interface("newStatus", n.Status).Msg("Node status updated")
 	}
 }
 
@@ -296,7 +333,8 @@ func (m * Manager) DrainCluster(clusterID *grpc_infrastructure_go.ClusterId) (*g
 		return nil, err
 	}
 
-	if !targetCluster.Cordon {
+	log.Debug().Str("status", targetCluster.ClusterStatus.String()).Msg("cluster status")
+	if targetCluster.ClusterStatus != grpc_connectivity_manager_go.ClusterStatus_OFFLINE_CORDON && targetCluster.ClusterStatus != grpc_connectivity_manager_go.ClusterStatus_ONLINE_CORDON {
 		err := errors.New(fmt.Sprintf("cluster %s must be cordoned before draining", targetCluster.ClusterId))
 		return nil, err
 	}

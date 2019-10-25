@@ -205,12 +205,12 @@
   version = "v0.0.53"
 
 [[projects]]
-  digest = "1:d8dbf2e75d59ab599560684c348b56308e73aa43fa4a74206837acdca3c03775"
+  digest = "1:5e292bea222cb2f467fb7ac4a1e3e64a52bf632a0bfa5ae1e2b4c11c11793a87"
   name = "github.com/nalej/grpc-bus-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "ab6874a4c63c103df0593a5f1665524663b2a16c"
-  version = "v0.0.16"
+  revision = "b59079ae38f7c9eb535b1876c6bb319fddf1baa4"
+  version = "v0.0.21"
 
 [[projects]]
   digest = "1:13bc01f757603fe6c9d5eecfe46b20fb7568a31dd9373c68d5582e73070d1267"
@@ -229,12 +229,12 @@
   version = "v0.0.34"
 
 [[projects]]
-  digest = "1:2632c3325edc2a66a4e884317f82d1c7bb822f719a91c0b2a3e5d0051573f856"
+  digest = "1:560d456e629317b9e679f5261b235ff375b6805d6039ef0ca59a6092968a104c"
   name = "github.com/nalej/grpc-conductor-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "8111f6b0ae4f36578c1866332493f54c3de86cbe"
-  version = "v0.0.91"
+  revision = "3cb276e34c5c31e5aeeb9a1279b4682ff9b161ae"
+  version = "v0.0.93"
 
 [[projects]]
   digest = "1:4cfe2cb705e6a29204b560513fa64f5baa1890bd4ccbef21f4dcde8423e2ebab"
@@ -352,7 +352,8 @@
   version = "v1.4.0"
 
 [[projects]]
-  digest = "1:c64b032ffae40459f07b5c39de50c88661e940865707dcb17b79da99923a24e8"
+  branch = "master"
+  digest = "1:b6b43085d135e337fd94af757f7524ef56bdc8fc543d08b2311e970f84b56f22"
   name = "github.com/nalej/nalej-bus"
   packages = [
     "pkg/bus",
@@ -362,8 +363,7 @@
     "pkg/queue/infrastructure/ops",
   ]
   pruneopts = "UT"
-  revision = "c9e71fc5c960d72e422c7cb4a23add81ab263515"
-  version = "v0.3.0"
+  revision = "f38ba70f4506ab9c1b958b6b5055763ffdc2bc80"
 
 [[projects]]
   digest = "1:42e29deef12327a69123b9cb2cb45fee4af5c12c2a23c6e477338279a052703f"
@@ -507,14 +507,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:3fa58f7377e1d95d496db43dd3281ddcea4185eb46c6394f89fec1cfa4ec3244"
+  digest = "1:de0084adc1c0b8cf6fd192d7785b098b155ba355cbeec9ee361aea55b887ab9d"
   name = "golang.org/x/sys"
   packages = [
     "unix",
     "windows",
   ]
   pruneopts = "UT"
-  revision = "742c48ecaeb7c624c475e02f3eb0827ebb4970d4"
+  revision = "6c3a3bfe00aeca2b8685f04a482824367e7d2135"
 
 [[projects]]
   digest = "1:28deae5fe892797ff37a317b5bcda96d11d1c90dadd89f1337651df3bc4c586e"
@@ -555,11 +555,11 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:32a1c8a24e8d0259416f84720d6c32e5c52cf10d01c19a7d23dcfa868f6b6235"
+  digest = "1:a2f668c709f9078828e99cb1768cb02e876cb81030545046a32b54b2ac2a9ea8"
   name = "golang.org/x/time"
   packages = ["rate"]
   pruneopts = "UT"
-  revision = "6d3f0bb11be5e03f8353894b7240e7d793e40a8f"
+  revision = "555d28b269f0569763d25dbe1a237ae74c6bcc82"
 
 [[projects]]
   digest = "1:e0a1881f9e0564bebdeac98c75e59f07acdde6ed3a5396e0e613eaad31194866"
@@ -824,6 +824,7 @@
     "github.com/nalej/derrors",
     "github.com/nalej/grpc-common-go",
     "github.com/nalej/grpc-conductor-go",
+    "github.com/nalej/grpc-connectivity-manager-go",
     "github.com/nalej/grpc-infrastructure-go",
     "github.com/nalej/grpc-infrastructure-manager-go",
     "github.com/nalej/grpc-installer-go",
