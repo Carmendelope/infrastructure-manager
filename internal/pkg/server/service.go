@@ -10,10 +10,11 @@ import (
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
-    "github.com/nalej/infrastructure-manager/internal/pkg/bus"
-    "github.com/nalej/infrastructure-manager/internal/pkg/server/infrastructure"
-    "github.com/nalej/nalej-bus/pkg/bus/pulsar-comcast"
-    "github.com/rs/zerolog/log"
+	"github.com/nalej/grpc-provisioner-go"
+	"github.com/nalej/infrastructure-manager/internal/pkg/bus"
+	"github.com/nalej/infrastructure-manager/internal/pkg/server/infrastructure"
+	"github.com/nalej/nalej-bus/pkg/bus/pulsar-comcast"
+	"github.com/rs/zerolog/log"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 	"net"
@@ -22,7 +23,7 @@ import (
 // Service structure with the configuration and the gRPC server.
 type Service struct {
 	Configuration Config
-	Server * grpc.Server
+	Server        *grpc.Server
 }
 
 // NewService creates a new system model service.
@@ -35,37 +36,43 @@ func NewService(conf Config) *Service {
 
 // Clients structure with the gRPC clients for remote services.
 type Clients struct {
-	ClusterClient grpc_infrastructure_go.ClustersClient
-	NodesClient grpc_infrastructure_go.NodesClient
-	InstallerClient grpc_installer_go.InstallerClient
+	ClusterClient     grpc_infrastructure_go.ClustersClient
+	NodesClient       grpc_infrastructure_go.NodesClient
+	InstallerClient   grpc_installer_go.InstallerClient
+	ProvisionerClient grpc_provisioner_go.ProvisionClient
 }
 
 // GetClients creates the required connections with the remote clients.
-func (s * Service) GetClients() (* Clients, derrors.Error) {
+func (s *Service) GetClients() (*Clients, derrors.Error) {
 	smConn, err := grpc.Dial(s.Configuration.SystemModelAddress, grpc.WithInsecure())
-	if err != nil{
+	if err != nil {
 		return nil, derrors.AsError(err, "cannot create connection with the system model")
 	}
 	insConn, err := grpc.Dial(s.Configuration.InstallerAddress, grpc.WithInsecure())
-	if err != nil{
+	if err != nil {
 		return nil, derrors.AsError(err, "cannot create connection with the installer")
+	}
+	provConn, err := grpc.Dial(s.Configuration.ProvisionerAddress, grpc.WithInsecure())
+	if err != nil {
+		return nil, derrors.AsError(err, "cannot create connection with the provisioner")
 	}
 	cClient := grpc_infrastructure_go.NewClustersClient(smConn)
 	nClient := grpc_infrastructure_go.NewNodesClient(smConn)
 	iClient := grpc_installer_go.NewInstallerClient(insConn)
+	pClient := grpc_provisioner_go.NewProvisionClient(provConn)
 
-	return &Clients{cClient, nClient, iClient}, nil
+	return &Clients{cClient, nClient, iClient, pClient}, nil
 }
 
 // Run the service, launch the REST service handler.
 func (s *Service) Run() error {
 	cErr := s.Configuration.Validate()
-	if cErr != nil{
+	if cErr != nil {
 		log.Fatal().Str("err", cErr.DebugReport()).Msg("invalid configuration")
 	}
 	s.Configuration.Print()
 	clients, cErr := s.GetClients()
-	if cErr != nil{
+	if cErr != nil {
 		log.Fatal().Str("err", cErr.DebugReport()).Msg("Cannot create clients")
 	}
 
@@ -80,13 +87,13 @@ func (s *Service) Run() error {
 
 	busManager, err := bus.NewBusManager(queueClient, "InfrastructureManager")
 	if err != nil {
-	    log.Panic().Err(err).Msg("impossible to create bus manager instance")
-	    return err
-    }
+		log.Panic().Err(err).Msg("impossible to create bus manager instance")
+		return err
+	}
 	log.Info().Msg("done")
 
 	// Create handlers
-	manager := infrastructure.NewManager(s.Configuration.TempDir, clients.ClusterClient, clients.NodesClient, clients.InstallerClient, busManager)
+	manager := infrastructure.NewManager(s.Configuration.TempDir, clients.ClusterClient, clients.NodesClient, clients.InstallerClient, clients.ProvisionerClient, busManager)
 	handler := infrastructure.NewHandler(manager)
 
 	grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(s.Server, handler)

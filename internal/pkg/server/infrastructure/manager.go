@@ -11,11 +11,12 @@ import (
 	"github.com/nalej/derrors"
 	"github.com/nalej/grpc-common-go"
 	"github.com/nalej/grpc-conductor-go"
-	grpc_connectivity_manager_go "github.com/nalej/grpc-connectivity-manager-go"
+	"github.com/nalej/grpc-connectivity-manager-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
 	"github.com/nalej/grpc-organization-go"
+	"github.com/nalej/grpc-provisioner-go"
 	"github.com/nalej/grpc-utils/pkg/conversions"
 	"github.com/nalej/infrastructure-manager/internal/pkg/bus"
 	"github.com/nalej/infrastructure-manager/internal/pkg/entities"
@@ -36,11 +37,12 @@ const (
 
 // Manager structure with the remote clients required to coordinate infrastructure operations.
 type Manager struct {
-	tempPath        string
-	clusterClient   grpc_infrastructure_go.ClustersClient
-	nodesClient     grpc_infrastructure_go.NodesClient
-	installerClient grpc_installer_go.InstallerClient
-	busManager      *bus.BusManager
+	tempPath          string
+	clusterClient     grpc_infrastructure_go.ClustersClient
+	nodesClient       grpc_infrastructure_go.NodesClient
+	installerClient   grpc_installer_go.InstallerClient
+	provisionerClient grpc_provisioner_go.ProvisionClient
+	busManager        *bus.BusManager
 }
 
 // NewManager creates a new manager.
@@ -49,13 +51,15 @@ func NewManager(
 	clusterClient grpc_infrastructure_go.ClustersClient,
 	nodesClient grpc_infrastructure_go.NodesClient,
 	installerClient grpc_installer_go.InstallerClient,
+	provisionerClient grpc_provisioner_go.ProvisionClient,
 	busManager *bus.BusManager) Manager {
 	return Manager{
-		tempPath:        tempDir,
-		clusterClient:   clusterClient,
-		nodesClient:     nodesClient,
-		installerClient: installerClient,
-		busManager:      busManager,
+		tempPath:          tempDir,
+		clusterClient:     clusterClient,
+		nodesClient:       nodesClient,
+		installerClient:   installerClient,
+		provisionerClient: provisionerClient,
+		busManager:        busManager,
 	}
 }
 
@@ -78,9 +82,9 @@ func (m *Manager) writeTempFile(content string, prefix string) (*string, derrors
 }
 
 // addClusterToSM adds the newly discovered cluster to the system model.
-func (m *Manager) addClusterToSM(installID string, organizationID string, cluster entities.Cluster) (*grpc_infrastructure_go.Cluster, derrors.Error) {
+func (m *Manager) addClusterToSM(requestID string, organizationID string, cluster entities.Cluster, clusterState grpc_infrastructure_go.ClusterState) (*grpc_infrastructure_go.Cluster, derrors.Error) {
 	toAdd := &grpc_infrastructure_go.AddClusterRequest{
-		RequestId:            installID,
+		RequestId:            requestID,
 		OrganizationId:       organizationID,
 		Name:                 cluster.Name,
 		Hostname:             cluster.Hostname,
@@ -91,11 +95,11 @@ func (m *Manager) addClusterToSM(installID string, organizationID string, cluste
 	if err != nil {
 		return nil, conversions.ToDerror(err)
 	}
-	err = m.updateClusterState(organizationID, clusterAdded.ClusterId, grpc_infrastructure_go.ClusterState_PROVISIONED)
+	err = m.updateClusterState(organizationID, clusterAdded.ClusterId, clusterState)
 
 	for _, n := range cluster.Nodes {
 		nodeToAdd := &grpc_infrastructure_go.AddNodeRequest{
-			RequestId:      installID,
+			RequestId:      requestID,
 			OrganizationId: organizationID,
 			Ip:             n.IP,
 			Labels:         n.Labels,
@@ -106,7 +110,7 @@ func (m *Manager) addClusterToSM(installID string, organizationID string, cluste
 			return nil, conversions.ToDerror(err)
 		}
 		attachReq := &grpc_infrastructure_go.AttachNodeRequest{
-			RequestId:      installID,
+			RequestId:      requestID,
 			OrganizationId: organizationID,
 			ClusterId:      clusterAdded.ClusterId,
 			NodeId:         addedNode.NodeId,
@@ -120,10 +124,9 @@ func (m *Manager) addClusterToSM(installID string, organizationID string, cluste
 	return clusterAdded, nil
 }
 
-// discoverAndAddCluster triggers the discovery of an existing Kubernetes cluster using a KubeConfig file.
-func (m *Manager) discoverAndAddCluster(installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_go.Cluster, derrors.Error) {
+func (m *Manager) discoverCluster(requestID string, kubeConfig string, hostname string) (*entities.Cluster, derrors.Error) {
 	// Store the kubeconfig file in a temporal path.
-	tempFile, err := m.writeTempFile(installRequest.KubeConfigRaw, installRequest.InstallId)
+	tempFile, err := m.writeTempFile(kubeConfig, requestID)
 	defer os.Remove(*tempFile)
 	if err != nil {
 		return nil, err
@@ -137,29 +140,33 @@ func (m *Manager) discoverAndAddCluster(installRequest *grpc_installer_go.Instal
 	if err != nil {
 		return nil, err
 	}
-	discovered.Hostname = installRequest.Hostname
+	discovered.Hostname = hostname
 	log.Debug().Str("KubernetesVersion", discovered.KubernetesVersion).
 		Int("numNodes", len(discovered.Nodes)).
 		Str("ControlPlaneHostname", discovered.ControlPlaneHostname).
 		Str("hostname", discovered.Hostname).Msg("cluster has been discovered")
-	// Add cluster and nodes to the system model.
-	return m.addClusterToSM(installRequest.InstallId, installRequest.OrganizationId, *discovered)
+
+	return discovered, nil
 }
 
-// getOrCreateCluster retrieves the target cluster from system model, or triggers the discovery of an existing cluster depending
+// getOrCreateProvisionedCluster retrieves the target cluster from system model, or triggers the discovery of an existing cluster depending
 // on the request parameters.
-func (m *Manager) getOrCreateCluster(installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_go.Cluster, derrors.Error) {
+func (m *Manager) getOrCreateProvisionedCluster(installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_go.Cluster, derrors.Error) {
 	var result *grpc_infrastructure_go.Cluster
 	if installRequest.ClusterId == "" {
-		log.Debug().Str("installId", installRequest.InstallId).Msg("Discovering cluster")
+		log.Debug().Str("requestID", installRequest.InstallId).Msg("Discovering cluster")
 		// Discover cluster
-		added, err := m.discoverAndAddCluster(installRequest)
+		discovered, err := m.discoverCluster(installRequest.InstallId, installRequest.KubeConfigRaw, installRequest.Hostname)
+		if err != nil {
+			return nil, err
+		}
+		added, err := m.addClusterToSM(installRequest.InstallId, installRequest.OrganizationId, *discovered, grpc_infrastructure_go.ClusterState_PROVISIONED)
 		if err != nil {
 			return nil, err
 		}
 		result = added
 	} else {
-		log.Debug().Str("installId", installRequest.InstallId).Str("clusterID", installRequest.ClusterId).Msg("Retrieving existing cluster")
+		log.Debug().Str("requestID", installRequest.InstallId).Str("clusterID", installRequest.ClusterId).Msg("Retrieving existing cluster")
 		clusterID := &grpc_infrastructure_go.ClusterId{
 			OrganizationId: installRequest.OrganizationId,
 			ClusterId:      installRequest.ClusterId,
@@ -204,11 +211,96 @@ func (m *Manager) updateClusterState(organizationID string, clusterID string, ne
 	return nil
 }
 
+func (m *Manager) ProvisionAndInstallCluster(provisionRequest *grpc_provisioner_go.ProvisionClusterRequest) (*grpc_infrastructure_manager_go.ProvisionerResponse, error) {
+	log.Debug().Interface("request", provisionRequest).Msg("ProvisionAndInstallCluster")
+	log.Debug().Str("platform", provisionRequest.TargetPlatform.String()).Msg("Target platform")
+	log.Debug().Str("cluster_name", provisionRequest.ClusterName).Msg("Cluster name")
+
+	cluster, err := m.addClusterToSM(provisionRequest.RequestId, provisionRequest.OrganizationId, entities.Cluster{}, grpc_infrastructure_go.ClusterState_PROVISIONING)
+	if err != nil {
+		return nil, conversions.ToGRPCError(err)
+	}
+	provisionRequest.ClusterId = cluster.ClusterId
+
+	log.Debug().Str("clusterID", provisionRequest.ClusterId).Msg("provisioning cluster")
+	provisionerResponse, pErr := m.provisionerClient.ProvisionCluster(context.Background(), provisionRequest)
+	if pErr != nil {
+		return nil, pErr
+	}
+	log.Debug().Str("clusterID", provisionRequest.ClusterId).Msg("cluster is being provisioned")
+	provisionResponse := &grpc_infrastructure_manager_go.ProvisionerResponse{
+		RequestId:      provisionerResponse.RequestId,
+		OrganizationId: provisionRequest.OrganizationId,
+		ClusterId:      provisionRequest.ClusterId,
+		State:          provisionerResponse.State,
+		Error:          provisionerResponse.Error,
+	}
+	mon := monitor.NewProvisionerMonitor(m.provisionerClient, m.clusterClient, *provisionResponse)
+	mon.RegisterCallback(m.provisionCallback)
+	go mon.LaunchMonitor()
+	return provisionResponse, nil
+}
+
+func (m *Manager) provisionCallback(requestID string, organizationID string, clusterID string,
+	lastResponse *grpc_provisioner_go.ProvisionClusterResponse, err derrors.Error) {
+	log.Debug().Str("requestID", requestID).Msg("provisioner callback received")
+	if err != nil {
+		log.Error().Str("err", err.DebugReport()).Msg("error callback received")
+	}
+	if lastResponse == nil {
+		return
+	}
+
+	newState := grpc_infrastructure_go.ClusterState_PROVISIONED
+	if err != nil || lastResponse.State == grpc_provisioner_go.ProvisionProgress_ERROR {
+		newState = grpc_infrastructure_go.ClusterState_FAILURE
+		log.Warn().Str("requestID", requestID).Str("organizationID", organizationID).Str("clusterID", clusterID).Msg("Provision failed")
+	}
+	err = m.updateClusterState(organizationID, clusterID, newState)
+	if err != nil {
+		log.Error().Msg("unable to update cluster state after provision")
+	}
+
+	discovered, err := m.discoverCluster(requestID, lastResponse.RawKubeConfig, lastResponse.Hostname)
+	if err != nil {
+		log.Error().Msg("unable to discover cluster")
+	}
+	clusterUpdate := &grpc_infrastructure_go.UpdateClusterRequest{
+		OrganizationId:             organizationID,
+		ClusterId:                  clusterID,
+		UpdateHostname:             true,
+		Hostname:                   lastResponse.Hostname,
+		UpdateControlPlaneHostname: true,
+		ControlPlaneHostname:       discovered.ControlPlaneHostname,
+	}
+	_, updErr := m.UpdateCluster(clusterUpdate)
+	if updErr != nil {
+		derrors.NewInternalError("error updating discovered cluster", updErr)
+	}
+
+	installRequest := &grpc_installer_go.InstallRequest{
+		InstallId:         requestID,
+		OrganizationId:    organizationID,
+		ClusterId:         clusterID,
+		ClusterType:       grpc_infrastructure_go.ClusterType_KUBERNETES,
+		InstallBaseSystem: false,
+		KubeConfigRaw:     lastResponse.RawKubeConfig,
+		Hostname:          lastResponse.Hostname,
+		TargetPlatform:    grpc_installer_go.Platform_AZURE,
+		StaticIpAddresses: lastResponse.StaticIpAddresses,
+	}
+	_, icErr := m.InstallCluster(installRequest)
+	if icErr != nil {
+		derrors.NewInternalError("error creating install request after provision", icErr)
+	}
+	return
+}
+
 func (m *Manager) InstallCluster(installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_manager_go.InstallResponse, error) {
 	log.Debug().Interface("request", installRequest).Msg("InstallCluster")
 	log.Debug().Str("platform", installRequest.TargetPlatform.String()).Msg("Target platform")
 	log.Debug().Str("hostname", installRequest.Hostname).Msg("Public App cluster hostname")
-	cluster, err := m.getOrCreateCluster(installRequest)
+	cluster, err := m.getOrCreateProvisionedCluster(installRequest)
 	if err != nil {
 		return nil, conversions.ToGRPCError(err)
 	}
@@ -246,7 +338,7 @@ func (m *Manager) InstallCluster(installRequest *grpc_installer_go.InstallReques
 func (m *Manager) installCallback(
 	installID string, organizationID string, clusterID string,
 	lastResponse *grpc_installer_go.InstallResponse, err derrors.Error) {
-	log.Debug().Str("installID", installID).Msg("callback received")
+	log.Debug().Str("installID", installID).Msg("installer callback received")
 	if err != nil {
 		log.Error().Str("err", err.DebugReport()).Msg("error callback received")
 	}

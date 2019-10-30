@@ -269,12 +269,12 @@
   version = "v0.0.14"
 
 [[projects]]
-  digest = "1:bd3381a472a6e282eeb04e17cbb6c8acfc44efbd2356ba8c8f03ab5562f137b2"
+  digest = "1:33d24737861dd9a8f0c92b6dd6cfecf3b898ef991a1a3fbbd69aa5eaa0cfbbbf"
   name = "github.com/nalej/grpc-infrastructure-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "b5ebfe524bbaaae72fe0698c783c3298d718edec"
-  version = "v0.0.46"
+  revision = "42315cee8de61d8ea3e8fb5b1e31e5f7ecfd3988"
+  version = "v0.0.47"
 
 [[projects]]
   digest = "1:fae332734ffe568ab27baa72a40d17db689ae2f7f072c77ef45f6873469d4f0d"
@@ -333,12 +333,12 @@
   version = "v0.0.2"
 
 [[projects]]
-  digest = "1:f5adbfee4a1bf839897a39f346252c0dd0991a3845ebdf2468333010ab685ccf"
+  digest = "1:4f03ff0c209daeccb71d85a0c4c241767720c6d96e96c70e6389a7831b092e15"
   name = "github.com/nalej/grpc-provisioner-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "77101da2db4295b60f6edd2c776897287e99893a"
-  version = "v0.0.5"
+  revision = "8c9f264338f972c33157218faa293fa807ce1972"
+  version = "v0.0.6"
 
 [[projects]]
   digest = "1:0ab6573732a9025fd58fb2cbb6ec39b9b43e3452d86cefcc52d757112f674a11"
