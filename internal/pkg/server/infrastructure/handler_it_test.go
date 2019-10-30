@@ -14,11 +14,12 @@ package infrastructure
 import (
 	"context"
 	"fmt"
-	grpc_connectivity_manager_go "github.com/nalej/grpc-connectivity-manager-go"
+	"github.com/nalej/grpc-connectivity-manager-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
 	"github.com/nalej/grpc-organization-go"
+	"github.com/nalej/grpc-provisioner-go"
 	"github.com/nalej/grpc-utils/pkg/test"
 	"github.com/nalej/infrastructure-manager/internal/pkg/utils"
 	"github.com/onsi/ginkgo"
@@ -31,9 +32,9 @@ import (
 	"time"
 )
 
-func createOrganization(name string, orgClient grpc_organization_go.OrganizationsClient) * grpc_organization_go.Organization {
+func createOrganization(name string, orgClient grpc_organization_go.OrganizationsClient) *grpc_organization_go.Organization {
 	toAdd := &grpc_organization_go.AddOrganizationRequest{
-		Name:                 name,
+		Name: name,
 	}
 	added, err := orgClient.AddOrganization(context.Background(), toAdd)
 	gomega.Expect(err).To(gomega.Succeed())
@@ -47,8 +48,8 @@ func checkClusterAndNodes(organizationID string, clusterID string, systemModelAd
 	gomega.Expect(err).To(gomega.Succeed())
 	clusterClient := grpc_infrastructure_go.NewClustersClient(smConn)
 	cID := &grpc_infrastructure_go.ClusterId{
-		OrganizationId:       organizationID,
-		ClusterId:            clusterID,
+		OrganizationId: organizationID,
+		ClusterId:      clusterID,
 	}
 	cluster, err := clusterClient.GetCluster(context.Background(), cID)
 	gomega.Expect(err).To(gomega.Succeed())
@@ -62,41 +63,44 @@ func checkClusterAndNodes(organizationID string, clusterID string, systemModelAd
 
 var _ = ginkgo.Describe("Infrastructure", func() {
 
-	if ! utils.RunIntegrationTests() {
+	if !utils.RunIntegrationTests() {
 		log.Warn().Msg("Integration tests are skipped")
 		return
 	}
 
 	var (
 		systemModelAddress = os.Getenv("IT_SM_ADDRESS")
-		installerAddress = os.Getenv("IT_INSTALLER_ADDRESS")
-		kubeConfigFile = os.Getenv("IT_K8S_KUBECONFIG")
+		installerAddress   = os.Getenv("IT_INSTALLER_ADDRESS")
+		provisionerAddress = os.Getenv("IT_PROVISIONER_ADDRESS")
+		kubeConfigFile     = os.Getenv("IT_K8S_KUBECONFIG")
 	)
 
-	if systemModelAddress == "" || kubeConfigFile == "" || installerAddress == ""{
+	if systemModelAddress == "" || kubeConfigFile == "" || installerAddress == "" {
 		ginkgo.Fail("missing environment variables")
 	}
 
 	// gRPC server
-	var server * grpc.Server
+	var server *grpc.Server
 	// gRPC test listener
-	var listener * bufconn.Listener
+	var listener *bufconn.Listener
 
 	// Clients
 	var orgClient grpc_organization_go.OrganizationsClient
 	var clusterClient grpc_infrastructure_go.ClustersClient
 	var nodesClient grpc_infrastructure_go.NodesClient
 	var installerClient grpc_installer_go.InstallerClient
+	var provisionerClient grpc_provisioner_go.ProvisionClient
 
-	var smConn * grpc.ClientConn
-	var instConn * grpc.ClientConn
+	var smConn *grpc.ClientConn
+	var instConn *grpc.ClientConn
+	var provConn *grpc.ClientConn
 	var client grpc_infrastructure_manager_go.InfrastructureManagerClient
 
 	// Temp dir
 	var tempDir string
 
 	// Target organization.
-	var targetOrganization * grpc_organization_go.Organization
+	var targetOrganization *grpc_organization_go.Organization
 	var kubeConfigRaw string
 
 	const maxWait = 30
@@ -111,12 +115,13 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 		nodesClient = grpc_infrastructure_go.NewNodesClient(smConn)
 		instConn = utils.GetConnection(installerAddress)
 		installerClient = grpc_installer_go.NewInstallerClient(instConn)
-
+		provConn = utils.GetConnection(provisionerAddress)
+		provisionerClient = grpc_provisioner_go.NewProvisionClient(provConn)
 
 		conn, err := test.GetConn(*listener)
 		gomega.Expect(err).To(gomega.Succeed())
 
-		manager := NewManager(tempDir, clusterClient, nodesClient, installerClient,nil)
+		manager := NewManager(tempDir, clusterClient, nodesClient, installerClient, provisionerClient, nil)
 		handler := NewHandler(manager)
 		grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(server, handler)
 		test.LaunchServer(server, listener)
@@ -142,17 +147,17 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 	})
 
 	ginkgo.Context("with an existing kubernetes cluster", func() {
-		ginkgo.It("should be able to install the nalej components", func(){
+		ginkgo.It("should be able to install the nalej components", func() {
 
 			installRequest := &grpc_installer_go.InstallRequest{
-				OrganizationId:       targetOrganization.OrganizationId,
-				ClusterId:            "",
-				ClusterType:          grpc_infrastructure_go.ClusterType_KUBERNETES,
-				InstallBaseSystem:    false,
-				KubeConfigRaw:        kubeConfigRaw,
-				Username:             "",
-				PrivateKey:           "",
-				Nodes:                nil,
+				OrganizationId:    targetOrganization.OrganizationId,
+				ClusterId:         "",
+				ClusterType:       grpc_infrastructure_go.ClusterType_KUBERNETES,
+				InstallBaseSystem: false,
+				KubeConfigRaw:     kubeConfigRaw,
+				Username:          "",
+				PrivateKey:        "",
+				Nodes:             nil,
 			}
 			installResponse, err := client.InstallCluster(context.Background(), installRequest)
 			gomega.Expect(err).To(gomega.Succeed())
@@ -162,8 +167,8 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 			log.Debug().Interface("response", installResponse).Msg("Installation in progress")
 			// Wait for the install to finish
 			clusterID := &grpc_infrastructure_go.ClusterId{
-				OrganizationId:       targetOrganization.OrganizationId,
-				ClusterId:            installResponse.ClusterId,
+				OrganizationId: targetOrganization.OrganizationId,
+				ClusterId:      installResponse.ClusterId,
 			}
 
 			finished := false
@@ -172,7 +177,7 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 				gomega.Expect(err).To(gomega.Succeed())
 				log.Debug().Interface("updated", updated).Msg("cluster status")
 				finished = updated.ClusterStatus == grpc_connectivity_manager_go.ClusterStatus_ONLINE
-				if !finished{
+				if !finished {
 					time.Sleep(time.Second * 1)
 				}
 			}
@@ -181,17 +186,16 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 		})
 	})
 
-	ginkgo.PContext("with a basic OS cluster", func(){
-		ginkgo.PIt("should be able to install the nalej components", func(){
+	ginkgo.PContext("with a basic OS cluster", func() {
+		ginkgo.PIt("should be able to install the nalej components", func() {
 
 		})
 	})
 
-	ginkgo.PContext("with a single node cluster", func(){
-		ginkgo.PIt("should be able to install the nalej components", func(){
+	ginkgo.PContext("with a single node cluster", func() {
+		ginkgo.PIt("should be able to install the nalej components", func() {
 
 		})
 	})
-
 
 })
