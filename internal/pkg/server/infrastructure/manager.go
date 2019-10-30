@@ -91,6 +91,8 @@ func (m *Manager) addClusterToSM(installID string, organizationID string, cluste
 	if err != nil {
 		return nil, conversions.ToDerror(err)
 	}
+	err = m.updateClusterState(organizationID, clusterAdded.ClusterId, grpc_infrastructure_go.ClusterState_PROVISIONED)
+
 	for _, n := range cluster.Nodes {
 		nodeToAdd := &grpc_infrastructure_go.AddNodeRequest{
 			RequestId:      installID,
@@ -214,9 +216,9 @@ func (m *Manager) InstallCluster(installRequest *grpc_installer_go.InstallReques
 		return nil, derrors.NewUnimplementedError("InstallBaseSystem not supported")
 	}
 	installRequest.ClusterId = cluster.ClusterId
-	// TODO Check precondition states on a cluster before triggering an install. This must be done once the provisioner
-	// path is ready.
-	// Transition the cluster to installing
+	if cluster.State != grpc_infrastructure_go.ClusterState_PROVISIONED {
+		return nil, derrors.NewInvalidArgumentError("selected cluster is not ready for install")
+	}
 	err = m.updateClusterState(installRequest.OrganizationId, installRequest.ClusterId, grpc_infrastructure_go.ClusterState_INSTALL_IN_PROGRESS)
 	if err != nil {
 		log.Error().Str("trace", err.DebugReport()).Msg("cannot update cluster state")
