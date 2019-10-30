@@ -277,12 +277,12 @@
   version = "v0.0.45"
 
 [[projects]]
-  digest = "1:cfcf3f6a460d6703d78c5e64eda1cf701822f881c08a29cb2756a2fc10881150"
+  digest = "1:fae332734ffe568ab27baa72a40d17db689ae2f7f072c77ef45f6873469d4f0d"
   name = "github.com/nalej/grpc-infrastructure-manager-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "72e8c9093cdd5fe08c3b5258abf85dd0acb11f85"
-  version = "v0.0.33"
+  revision = "8b680110071151e6da36bd2650c9db939129fc0c"
+  version = "v0.0.35"
 
 [[projects]]
   digest = "1:2e7c1d6b9efc47b14101fcd3b0c13474da842d22df0908a28e6e500dbdb74812"
@@ -331,6 +331,14 @@
   pruneopts = "UT"
   revision = "37e82bc6c0190263e4856f6464b0cf06c9962dd5"
   version = "v0.0.2"
+
+[[projects]]
+  digest = "1:f5adbfee4a1bf839897a39f346252c0dd0991a3845ebdf2468333010ab685ccf"
+  name = "github.com/nalej/grpc-provisioner-go"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "77101da2db4295b60f6edd2c776897287e99893a"
+  version = "v0.0.5"
 
 [[projects]]
   digest = "1:0ab6573732a9025fd58fb2cbb6ec39b9b43e3452d86cefcc52d757112f674a11"
@@ -829,6 +837,7 @@
     "github.com/nalej/grpc-infrastructure-manager-go",
     "github.com/nalej/grpc-installer-go",
     "github.com/nalej/grpc-organization-go",
+    "github.com/nalej/grpc-provisioner-go",
     "github.com/nalej/grpc-utils/pkg/conversions",
     "github.com/nalej/grpc-utils/pkg/test",
     "github.com/nalej/nalej-bus/pkg/bus",

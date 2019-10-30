@@ -15,18 +15,6 @@ import (
 	"time"
 )
 
-// MaxConnFailures contains the number of communication failures allowed until the monitor exists.
-const (
-	MaxConnFailures = 5
-	DefaultTimeout  = 2 * time.Minute
-)
-
-// QueryDelay contains the polling interval to check the progress on the installer.
-const QueryDelay = time.Second * 15
-
-// ConnectRetryDelay contains the polling interval to retry the connection with the installer
-const ConnectRetryDelay = time.Second * 30
-
 // InstallerMonitor structure with the required clients to read and update states of an install.
 type InstallerMonitor struct {
 	installerClient   grpc_installer_go.InstallerClient
@@ -110,6 +98,6 @@ func (m *InstallerMonitor) notify(lastResponse *grpc_installer_go.InstallRespons
 			lastResponse, cErr)
 	} else {
 		log.Warn().Str("installID", m.installerResponse.InstallId).
-			Msg("no callback registed")
+			Msg("no callback registered")
 	}
 }
