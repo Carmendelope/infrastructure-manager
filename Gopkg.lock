@@ -277,12 +277,12 @@
   version = "v0.0.47"
 
 [[projects]]
-  digest = "1:fae332734ffe568ab27baa72a40d17db689ae2f7f072c77ef45f6873469d4f0d"
+  digest = "1:b50d22399303a1f08761a800831492a9afa975994ace724081c7423105b5b947"
   name = "github.com/nalej/grpc-infrastructure-manager-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "8b680110071151e6da36bd2650c9db939129fc0c"
-  version = "v0.0.35"
+  revision = "2cc2f51c70917a40dbc765990645f3521154a44b"
+  version = "v0.0.36"
 
 [[projects]]
   digest = "1:2e7c1d6b9efc47b14101fcd3b0c13474da842d22df0908a28e6e500dbdb74812"

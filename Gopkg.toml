@@ -29,7 +29,7 @@
 
 [[constraint]]
     name="github.com/nalej/grpc-infrastructure-manager-go"
-    version="=v0.0.35"
+    version="=v0.0.36"
 
  [[constraint]]
     name="github.com/nalej/grpc-conductor-go"
