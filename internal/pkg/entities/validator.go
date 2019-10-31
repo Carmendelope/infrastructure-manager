@@ -97,9 +97,6 @@ func ValidProvisionClusterRequest(request *grpc_provisioner_go.ProvisionClusterR
 	if request.OrganizationId == "" {
 		return derrors.NewInvalidArgumentError("organization_id must be set")
 	}
-	if request.ClusterId == "" {
-		return derrors.NewInvalidArgumentError("cluster_id must be set")
-	}
 	if request.NumNodes <= 0 {
 		return derrors.NewInvalidArgumentError("num_nodes must be positive")
 	}

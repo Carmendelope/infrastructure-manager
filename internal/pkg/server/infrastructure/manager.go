@@ -267,6 +267,12 @@ func (m *Manager) provisionCallback(requestID string, organizationID string, clu
 	err = m.updateClusterState(organizationID, clusterID, newState)
 	if err != nil {
 		log.Error().Msg("unable to update cluster state after provision")
+		return
+	}
+	if newState == grpc_infrastructure_go.ClusterState_FAILURE {
+		// The provisioning operation failed, so we should not continue with the install
+		log.Error().Msg("install will not be triggered as provisioning failed")
+		return
 	}
 
 	discovered, err := m.discoverCluster(requestID, lastResponse.RawKubeConfig, lastResponse.Hostname)
