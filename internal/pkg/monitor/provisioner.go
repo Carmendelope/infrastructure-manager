@@ -67,7 +67,7 @@ func (m *ProvisionerMonitor) LaunchMonitor() {
 				time.Sleep(ConnectRetryDelay)
 			}
 		} else {
-			log.Debug().Str("requestID", requestID.RequestId).Int64("elapsed", status.ElapsedTime).Msg("processing provision progress")
+			log.Debug().Str("requestID", requestID.RequestId).Int64("elapsed", status.ElapsedTime).Str("state", status.State.String()).Msg("processing provision progress")
 			if status.Error != "" || status.State == grpc_provisioner_go.ProvisionProgress_ERROR || status.State == grpc_provisioner_go.ProvisionProgress_FINISHED {
 				exit = true
 			} else {
