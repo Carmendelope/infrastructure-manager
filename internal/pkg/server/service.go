@@ -98,8 +98,12 @@ func (s *Service) Run() error {
 
 	grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(s.Server, handler)
 
-	// Register reflection service on gRPC server.
-	reflection.Register(s.Server)
+	if s.Configuration.Debug {
+		log.Info().Msg("Enabling gRPC server reflection")
+		// Register reflection service on gRPC server.
+		reflection.Register(s.Server)
+	}
+
 	log.Info().Int("port", s.Configuration.Port).Msg("Launching gRPC server")
 	if err := s.Server.Serve(lis); err != nil {
 		log.Fatal().Errs("failed to serve: %v", []error{err})

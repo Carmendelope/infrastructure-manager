@@ -23,9 +23,11 @@ type Config struct {
 	InstallerAddress string
 	// Message queue system address
 	QueueAddress string
+	// Debug mode
+	Debug bool
 }
 
-func (conf * Config) Validate() derrors.Error {
+func (conf *Config) Validate() derrors.Error {
 	if conf.Port <= 0 {
 		return derrors.NewInvalidArgumentError("port must be specified")
 	}

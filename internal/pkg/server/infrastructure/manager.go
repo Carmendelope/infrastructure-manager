@@ -96,6 +96,9 @@ func (m *Manager) addClusterToSM(requestID string, organizationID string, cluste
 		return nil, conversions.ToDerror(err)
 	}
 	err = m.updateClusterState(organizationID, clusterAdded.ClusterId, clusterState)
+	if err != nil {
+		return nil, conversions.ToDerror(err)
+	}
 
 	for _, n := range cluster.Nodes {
 		nodeToAdd := &grpc_infrastructure_go.AddNodeRequest{
@@ -216,7 +219,12 @@ func (m *Manager) ProvisionAndInstallCluster(provisionRequest *grpc_provisioner_
 	log.Debug().Str("platform", provisionRequest.TargetPlatform.String()).Msg("Target platform")
 	log.Debug().Str("cluster_name", provisionRequest.ClusterName).Msg("Cluster name")
 
-	cluster, err := m.addClusterToSM(provisionRequest.RequestId, provisionRequest.OrganizationId, entities.Cluster{}, grpc_infrastructure_go.ClusterState_PROVISIONING)
+	toAdd := entities.Cluster{
+		Name:              provisionRequest.ClusterName,
+		KubernetesVersion: provisionRequest.KubernetesVersion,
+	}
+
+	cluster, err := m.addClusterToSM(provisionRequest.RequestId, provisionRequest.OrganizationId, toAdd, grpc_infrastructure_go.ClusterState_PROVISIONING)
 	if err != nil {
 		return nil, conversions.ToGRPCError(err)
 	}

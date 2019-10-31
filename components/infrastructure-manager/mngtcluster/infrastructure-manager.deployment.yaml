@@ -32,6 +32,7 @@ spec:
         - "--debug"
         - "--systemModelAddress=system-model.__NPH_NAMESPACE:8800"
         - "--installerAddress=installer.__NPH_NAMESPACE:8900"
+        - "--provisionerAddress=provisioner.__NPH_NAMESPACE:8930"
         - "--tempDir=/tmp/nalej"
         - "--queueAddress=broker.__NPH_NAMESPACE:6650"
         volumeMounts:
