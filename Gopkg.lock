@@ -165,12 +165,12 @@
   version = "1.0.1"
 
 [[projects]]
-  digest = "1:b4e5da75c2b97eca42007c3be5edf9b0a6d1bc60c791dd57317fd37f293cf26d"
+  digest = "1:a12ca43cb47c3f7512757a41ec84c63e449e0df198a34199f8eb368992da7113"
   name = "github.com/nalej/derrors"
   packages = ["."]
   pruneopts = "UT"
-  revision = "7a6df7f0bb1c7cddfec82c91119f193f6fcbc9d5"
-  version = "v2.0.0"
+  revision = "bfc722761e86fbac74fae4f43db51901a538b72a"
+  version = "v2.1.0"
 
 [[projects]]
   digest = "1:edfcecb82ce3a0c34e90c63b1191390436e17bd1968cbcb687a8ffa848ec1363"
@@ -360,8 +360,7 @@
   version = "v1.4.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:b6b43085d135e337fd94af757f7524ef56bdc8fc543d08b2311e970f84b56f22"
+  digest = "1:37824da4f75c5237741e73da12a987e160e8094c05aca654a570cc3f260c5433"
   name = "github.com/nalej/nalej-bus"
   packages = [
     "pkg/bus",
@@ -371,7 +370,8 @@
     "pkg/queue/infrastructure/ops",
   ]
   pruneopts = "UT"
-  revision = "c98abce4d7d90f9fff223bd28407db6d52a6dad2"
+  revision = "1dd74ce7d95af3f0b5f15f27043c0255ee0a05d1"
+  version = "v0.4.0"
 
 [[projects]]
   digest = "1:42e29deef12327a69123b9cb2cb45fee4af5c12c2a23c6e477338279a052703f"
