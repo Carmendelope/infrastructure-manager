@@ -52,6 +52,7 @@ type Clients struct {
 	NodesClient       grpc_infrastructure_go.NodesClient
 	InstallerClient   grpc_installer_go.InstallerClient
 	ProvisionerClient grpc_provisioner_go.ProvisionClient
+	ScalerClient      grpc_provisioner_go.ScaleClient
 }
 
 // GetClients creates the required connections with the remote clients.
@@ -72,8 +73,9 @@ func (s *Service) GetClients() (*Clients, derrors.Error) {
 	nClient := grpc_infrastructure_go.NewNodesClient(smConn)
 	iClient := grpc_installer_go.NewInstallerClient(insConn)
 	pClient := grpc_provisioner_go.NewProvisionClient(provConn)
+	scClient := grpc_provisioner_go.NewScaleClient(provConn)
 
-	return &Clients{cClient, nClient, iClient, pClient}, nil
+	return &Clients{cClient, nClient, iClient, pClient, scClient}, nil
 }
 
 // Run the service, launch the REST service handler.
@@ -105,7 +107,10 @@ func (s *Service) Run() error {
 	log.Info().Msg("done")
 
 	// Create handlers
-	manager := infrastructure.NewManager(s.Configuration.TempDir, clients.ClusterClient, clients.NodesClient, clients.InstallerClient, clients.ProvisionerClient, busManager)
+	manager := infrastructure.NewManager(
+		s.Configuration.TempDir,
+		clients.ClusterClient, clients.NodesClient, clients.InstallerClient,
+		clients.ProvisionerClient, clients.ScalerClient, busManager)
 	handler := infrastructure.NewHandler(manager)
 
 	grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(s.Server, handler)

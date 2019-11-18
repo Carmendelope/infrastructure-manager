@@ -37,6 +37,16 @@ func NewHandler(manager Manager) *Handler {
 	return &Handler{manager}
 }
 
+// InstallCluster installs a new cluster into the system.
+func (h *Handler) InstallCluster(ctx context.Context, installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_manager_go.InstallResponse, error) {
+	err := entities.ValidInstallRequest(installRequest)
+	if err != nil {
+		return nil, conversions.ToGRPCError(err)
+	}
+	installRequest.InstallId = uuid.NewV4().String()
+	return h.Manager.InstallCluster(installRequest)
+}
+
 // ProvisionAndInstallCluster provisions a new kubernetes cluster and then installs it
 func (h *Handler) ProvisionAndInstallCluster(ctx context.Context, provisionRequest *grpc_provisioner_go.ProvisionClusterRequest) (*grpc_infrastructure_manager_go.ProvisionerResponse, error) {
 	err := entities.ValidProvisionClusterRequest(provisionRequest)
@@ -47,14 +57,18 @@ func (h *Handler) ProvisionAndInstallCluster(ctx context.Context, provisionReque
 	return h.Manager.ProvisionAndInstallCluster(provisionRequest)
 }
 
-// InstallCluster installs a new cluster into the system.
-func (h *Handler) InstallCluster(ctx context.Context, installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_manager_go.InstallResponse, error) {
-	err := entities.ValidInstallRequest(installRequest)
+// Scale the number of nodes in the cluster.
+func (h *Handler) Scale(_ context.Context, request *grpc_provisioner_go.ScaleClusterRequest) (*grpc_infrastructure_manager_go.ProvisionerResponse, error) {
+	err := entities.ValidScaleClusterRequest(request)
 	if err != nil {
 		return nil, conversions.ToGRPCError(err)
 	}
-	installRequest.InstallId = uuid.NewV4().String()
-	return h.Manager.InstallCluster(installRequest)
+	request.RequestId = uuid.NewV4().String()
+	result, err := h.Manager.Scale(request)
+	if err != nil {
+		return nil, conversions.ToGRPCError(err)
+	}
+	return result, nil
 }
 
 // GetCluster retrieves the cluster information.
