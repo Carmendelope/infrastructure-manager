@@ -124,6 +124,29 @@ func ValidProvisionClusterRequest(request *grpc_provisioner_go.ProvisionClusterR
 	return nil
 }
 
+// ValidScaleClusterRequest checks that the scale request contains the required values.
+func ValidScaleClusterRequest(request *grpc_provisioner_go.ScaleClusterRequest) derrors.Error{
+	if request.RequestId != "" {
+		return derrors.NewInvalidArgumentError("request_id is set by infrastructure-manager")
+	}
+	if request.OrganizationId == "" {
+		return derrors.NewInvalidArgumentError(emptyOrganizationId)
+	}
+	if request.ClusterId == "" {
+		return derrors.NewInvalidArgumentError(emptyClusterId)
+	}
+	if request.IsManagementCluster {
+		return derrors.NewInvalidArgumentError("can only scale application clusters")
+	}
+	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && request.AzureCredentials == nil{
+		return derrors.NewInvalidArgumentError("azure_credentials cannot be empty")
+	}
+	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && (request.AzureOptions == nil || request.AzureOptions.ResourceGroup == "") {
+		return derrors.NewInvalidArgumentError("azure_options.resource_group cannot be empty")
+	}
+	return nil
+}
+
 // ValidRemoveNodesRequest checks that the request specifies the organization and the list of nodes.
 func ValidRemoveNodesRequest(removeNodesRequest *grpc_infrastructure_go.RemoveNodesRequest) derrors.Error {
 	if removeNodesRequest.RequestId == "" {

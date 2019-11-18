@@ -54,6 +54,7 @@ type Manager struct {
 	nodesClient       grpc_infrastructure_go.NodesClient
 	installerClient   grpc_installer_go.InstallerClient
 	provisionerClient grpc_provisioner_go.ProvisionClient
+	scalerClient      grpc_provisioner_go.ScaleClient
 	busManager        *bus.BusManager
 }
 
@@ -64,6 +65,7 @@ func NewManager(
 	nodesClient grpc_infrastructure_go.NodesClient,
 	installerClient grpc_installer_go.InstallerClient,
 	provisionerClient grpc_provisioner_go.ProvisionClient,
+	scalerClient grpc_provisioner_go.ScaleClient,
 	busManager *bus.BusManager) Manager {
 	return Manager{
 		tempPath:          tempDir,
@@ -71,6 +73,7 @@ func NewManager(
 		nodesClient:       nodesClient,
 		installerClient:   installerClient,
 		provisionerClient: provisionerClient,
+		scalerClient:      scalerClient,
 		busManager:        busManager,
 	}
 }
@@ -181,12 +184,7 @@ func (m *Manager) getOrCreateProvisionedCluster(installRequest *grpc_installer_g
 		}
 		result = added
 	} else {
-		log.Debug().Str("requestID", installRequest.InstallId).Str("clusterID", installRequest.ClusterId).Msg("Retrieving existing cluster")
-		clusterID := &grpc_infrastructure_go.ClusterId{
-			OrganizationId: installRequest.OrganizationId,
-			ClusterId:      installRequest.ClusterId,
-		}
-		retrieved, err := m.clusterClient.GetCluster(context.Background(), clusterID)
+		retrieved, err := m.getCluster(installRequest.OrganizationId, installRequest.ClusterId)
 		if err != nil {
 			return nil, conversions.ToDerror(err)
 		}
@@ -197,6 +195,22 @@ func (m *Manager) getOrCreateProvisionedCluster(installRequest *grpc_installer_g
 	}
 	log.Debug().Str("clusterID", result.ClusterId).Msg("target cluster found")
 	return result, nil
+}
+
+// getCluster retrieves the cluster entity from system model
+func (m *Manager) getCluster(organizationID string, clusterID string) (*grpc_infrastructure_go.Cluster, derrors.Error) {
+	log.Debug().Str("organizationID", organizationID).Str("clusterID", clusterID).Msg("Retrieving existing cluster")
+	request := &grpc_infrastructure_go.ClusterId{
+		OrganizationId: organizationID,
+		ClusterId:      clusterID,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer cancel()
+	retrieved, err := m.clusterClient.GetCluster(ctx, request)
+	if err != nil {
+		return nil, conversions.ToDerror(err)
+	}
+	return retrieved, nil
 }
 
 // UpdateClusterState updates the state of a cluster in system model. The update is also sent to the bus
@@ -226,6 +240,7 @@ func (m *Manager) updateClusterState(organizationID string, clusterID string, ne
 	return nil
 }
 
+// ProvisionAndInstallCluster provisions a new kubernetes cluster and then installs it
 func (m *Manager) ProvisionAndInstallCluster(provisionRequest *grpc_provisioner_go.ProvisionClusterRequest) (*grpc_infrastructure_manager_go.ProvisionerResponse, error) {
 	log.Debug().Interface("request", provisionRequest).Msg("ProvisionAndInstallCluster")
 	log.Debug().Str("platform", provisionRequest.TargetPlatform.String()).Msg("Target platform")
@@ -261,6 +276,8 @@ func (m *Manager) ProvisionAndInstallCluster(provisionRequest *grpc_provisioner_
 	return provisionResponse, nil
 }
 
+// provisionCallback function that will be called once a provision operation is finished. If successful, it
+// will trigger the installation of the platform.
 func (m *Manager) provisionCallback(requestID string, organizationID string, clusterID string,
 	lastResponse *grpc_provisioner_go.ProvisionClusterResponse, err derrors.Error) {
 	log.Debug().Str("requestID", requestID).Msg("provisioner callback received")
@@ -301,7 +318,7 @@ func (m *Manager) provisionCallback(requestID string, organizationID string, clu
 	}
 	_, updErr := m.UpdateCluster(clusterUpdate)
 	if updErr != nil {
-		derrors.NewInternalError("error updating discovered cluster", updErr)
+		log.Error().Str("trace", conversions.ToDerror(updErr).DebugReport()).Msg("error updating discovered cluster")
 	}
 
 	installRequest := &grpc_installer_go.InstallRequest{
@@ -317,7 +334,7 @@ func (m *Manager) provisionCallback(requestID string, organizationID string, clu
 	}
 	_, icErr := m.InstallCluster(installRequest)
 	if icErr != nil {
-		derrors.NewInternalError("error creating install request after provision", icErr)
+		log.Error().Str("trace", conversions.ToDerror(icErr).DebugReport()).Msg("error creating install request after provisioning")
 	}
 	return
 }
@@ -361,6 +378,7 @@ func (m *Manager) InstallCluster(installRequest *grpc_installer_go.InstallReques
 	return installResponse, nil
 }
 
+// installCallback function called when a install operation has finished on the installer.
 func (m *Manager) installCallback(
 	installID string, organizationID string, clusterID string,
 	lastResponse *grpc_installer_go.InstallResponse, err derrors.Error) {
@@ -409,6 +427,73 @@ func (m *Manager) installCallback(
 		}
 		log.Debug().Str("organizationID", organizationID).Str("nodeId", n.NodeId).Interface("newStatus", n.Status).Msg("Node status updated")
 	}
+}
+
+// Scale the number of nodes in the cluster.
+func (m *Manager) Scale(request *grpc_provisioner_go.ScaleClusterRequest) (*grpc_infrastructure_manager_go.ProvisionerResponse, derrors.Error) {
+	log.Debug().Str("organizationID", request.OrganizationId).Str("clusterID", request.ClusterId).
+		Str("platform", request.TargetPlatform.String()).Interface("request", request).Msg("Scale request")
+	// Get the cluster and check the current state
+	retrieved, err := m.getCluster(request.OrganizationId, request.ClusterId)
+	if err != nil {
+		return nil, err
+	}
+	if retrieved.State != grpc_infrastructure_go.ClusterState_INSTALLED {
+		return nil, derrors.NewFailedPreconditionError("cluster should be on installed state")
+	}
+	// Update the state to scaling
+	err = m.updateClusterState(request.OrganizationId, request.ClusterId, grpc_infrastructure_go.ClusterState_SCALING)
+	if err != nil {
+		return nil, err
+	}
+	// Send the request to the provisioner component
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer cancel()
+	provisionerResponse, pErr := m.scalerClient.ScaleCluster(ctx, request)
+	if pErr != nil {
+		// Update the state to error
+		err = m.updateClusterState(request.OrganizationId, request.ClusterId, grpc_infrastructure_go.ClusterState_FAILURE)
+		if err != nil {
+			log.Error().Str("trace", err.DebugReport()).Msg("cannot update failed cluster scale")
+		}
+		return nil, conversions.ToDerror(pErr)
+	}
+	log.Debug().Str("clusterID", request.ClusterId).Msg("cluster is being scaled")
+	provisionResponse := &grpc_infrastructure_manager_go.ProvisionerResponse{
+		RequestId:      provisionerResponse.RequestId,
+		OrganizationId: request.OrganizationId,
+		ClusterId:      request.ClusterId,
+		State:          provisionerResponse.State,
+		Error:          provisionerResponse.Error,
+	}
+	mon := monitor.NewScalerMonitor(m.scalerClient, *provisionResponse)
+	mon.RegisterCallback(m.scaleCallback)
+	go mon.LaunchMonitor()
+	return provisionResponse, nil
+}
+
+// scaleCallback function that will be called once a provision operation is finished.
+func (m *Manager) scaleCallback(requestID string, organizationID string, clusterID string,
+	lastResponse *grpc_provisioner_go.ScaleClusterResponse, err derrors.Error) {
+	log.Debug().Str("requestID", requestID).Msg("scaler callback received")
+	if err != nil {
+		log.Error().Str("err", err.DebugReport()).Msg("error callback received")
+	}
+	if lastResponse == nil {
+		return
+	}
+
+	newState := grpc_infrastructure_go.ClusterState_INSTALLED
+	if err != nil || lastResponse.State == grpc_provisioner_go.ProvisionProgress_ERROR {
+		newState = grpc_infrastructure_go.ClusterState_FAILURE
+		log.Warn().Str("requestID", requestID).Str("organizationID", organizationID).Str("clusterID", clusterID).Msg("Scaling failed")
+	}
+	err = m.updateClusterState(organizationID, clusterID, newState)
+	if err != nil {
+		log.Error().Msg("unable to update cluster state after scale")
+		return
+	}
+	return
 }
 
 // GetCluster retrieves the cluster information.
