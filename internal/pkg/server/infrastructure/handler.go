@@ -38,12 +38,12 @@ func NewHandler(manager Manager) *Handler {
 }
 
 // InstallCluster installs a new cluster into the system.
-func (h *Handler) InstallCluster(ctx context.Context, installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_manager_go.InstallResponse, error) {
+func (h *Handler) InstallCluster(ctx context.Context, installRequest *grpc_installer_go.InstallRequest) (*grpc_common_go.OpResponse, error) {
 	err := entities.ValidInstallRequest(installRequest)
 	if err != nil {
 		return nil, conversions.ToGRPCError(err)
 	}
-	installRequest.InstallId = uuid.NewV4().String()
+	installRequest.RequestId = uuid.NewV4().String()
 	return h.Manager.InstallCluster(installRequest)
 }
 
@@ -65,6 +65,34 @@ func (h *Handler) Scale(_ context.Context, request *grpc_provisioner_go.ScaleClu
 	}
 	request.RequestId = uuid.NewV4().String()
 	result, err := h.Manager.Scale(request)
+	if err != nil {
+		return nil, conversions.ToGRPCError(err)
+	}
+	return result, nil
+}
+
+// UninstallCluster proceeds to remove all Nalej created elements in that cluster.
+func (h *Handler) Uninstall(_ context.Context, request *grpc_installer_go.UninstallClusterRequest) (*grpc_common_go.OpResponse, error) {
+	err := entities.ValidUninstallClusterRequest(request)
+	if err != nil {
+		return nil, conversions.ToGRPCError(err)
+	}
+	request.RequestId = uuid.NewV4().String()
+	result, err := h.Manager.Uninstall(request)
+	if err != nil {
+		return nil, conversions.ToGRPCError(err)
+	}
+	return result, nil
+}
+
+// DecomissionCluster frees the resources of a given cluster.
+func (h *Handler) DecomissionCluster(_ context.Context, request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, error) {
+	err := entities.ValidDecomissionClusterRequest(request)
+	if err != nil {
+		return nil, conversions.ToGRPCError(err)
+	}
+	request.RequestId = uuid.NewV4().String()
+	result, err := h.Manager.DecomissionCluster(request)
 	if err != nil {
 		return nil, conversions.ToGRPCError(err)
 	}

@@ -8,15 +8,15 @@
 
 [[constraint]]
     name="github.com/nalej/grpc-common-go"
-    version="=v0.0.35"
+    version="=v0.0.38"
 
 [[constraint]]
     name="github.com/nalej/grpc-installer-go"
-    version="=v0.0.36"
+    version="=v0.0.38"
 
 [[constraint]]
     name="github.com/nalej/grpc-provisioner-go"
-    version="=v0.0.8"
+    version="=v0.0.10"
 
 [[constraint]]
     name="github.com/nalej/grpc-infrastructure-go"
@@ -28,11 +28,15 @@
 
 [[constraint]]
     name="github.com/nalej/grpc-infrastructure-manager-go"
-    version="=v0.0.38"
+    version="=v0.0.40"
 
  [[constraint]]
     name="github.com/nalej/grpc-conductor-go"
     version="=v0.0.93"
+
+ [[constraint]]
+    name="github.com/nalej/grpc-application-go"
+    version="=v0.0.91"
 
 [[constraint]]
     name="github.com/rs/zerolog"
