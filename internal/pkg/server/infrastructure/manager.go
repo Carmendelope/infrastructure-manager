@@ -68,6 +68,7 @@ func NewManager(
 	installerClient grpc_installer_go.InstallerClient,
 	provisionerClient grpc_provisioner_go.ProvisionClient,
 	scalerClient grpc_provisioner_go.ScaleClient,
+	appClient grpc_application_go.ApplicationsClient,
 	busManager *bus.BusManager) Manager {
 	return Manager{
 		tempPath:          tempDir,
@@ -76,6 +77,7 @@ func NewManager(
 		installerClient:   installerClient,
 		provisionerClient: provisionerClient,
 		scalerClient:      scalerClient,
+		appClient:         appClient,
 		busManager:        busManager,
 	}
 }
@@ -141,7 +143,20 @@ func (m *Manager) addClusterToSM(requestID string, organizationID string, cluste
 			return nil, conversions.ToDerror(err)
 		}
 	}
-	return clusterAdded, nil
+
+	// Retrieve the cluster from system model so that it contains up-to-date information as required by the calling
+	// methods. Notice that the state of the cluster may be updated on other places.
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer cancel()
+	clusterID := &grpc_infrastructure_go.ClusterId{
+		OrganizationId: clusterAdded.OrganizationId,
+		ClusterId:      clusterAdded.ClusterId,
+	}
+	result, err := m.clusterClient.GetCluster(ctx, clusterID)
+	if err != nil {
+		return nil, conversions.ToDerror(err)
+	}
+	return result, nil
 }
 
 func (m *Manager) discoverCluster(requestID string, kubeConfig string, hostname string) (*entities.Cluster, derrors.Error) {
@@ -228,7 +243,9 @@ func (m *Manager) updateClusterState(organizationID string, clusterID string, ne
 	defer cancel()
 	_, err := m.clusterClient.UpdateCluster(ctx, updateRequest)
 	if err != nil {
-		return derrors.AsError(err, "cannot update cluster state")
+		dErr := conversions.ToDerror(err)
+		log.Error().Str("trace", dErr.DebugReport()).Msg("cannot update cluster state")
+		return dErr
 	}
 
 	// if correct send it to the bus
@@ -408,7 +425,7 @@ func (m *Manager) installCallback(
 	}
 	nodes, nErr := m.nodesClient.ListNodes(context.Background(), cID)
 	if err != nil {
-		log.Error().Str("err", conversions.ToDerror(nErr).DebugReport()).Msg("cannot obtain the list of nodes in the cluster")
+		log.Error().Str("err", conversions.ToDerror(nErr).DebugReport()).Msg("cannot obtain the list of nodes in the cluster on install callback")
 		return
 	}
 
@@ -683,6 +700,9 @@ func (m *Manager) uninstallCallback(
 
 // DecomissionCluster frees the resources of a given cluster.
 func (m *Manager) DecomissionCluster(request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, derrors.Error) {
+	// 1. Retrieve the kubeconfig from provisioner.GetKubeConfig(ClusterRequest) returns (KubeConfigResponse){}
+	// 2. Trigger uninstall
+	// 3. Trigger decomission
 	panic("implement me")
 }
 
@@ -709,7 +729,7 @@ func (m *Manager) canUninstallCluster(organizationID string, clusterID string) d
 		return derrors.NewFailedPreconditionError("target cluster has deployed applications")
 	}
 	if cluster.ClusterStatus != grpc_connectivity_manager_go.ClusterStatus_ONLINE_CORDON {
-		return derrors.NewFailedPreconditionError("target cluster must be cordoned")
+		return derrors.NewFailedPreconditionError("target cluster must be online and cordoned")
 	}
 	return nil
 }

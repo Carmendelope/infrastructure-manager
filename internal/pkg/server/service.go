@@ -19,6 +19,7 @@ package server
 import (
 	"fmt"
 	"github.com/nalej/derrors"
+	grpc_application_go "github.com/nalej/grpc-application-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
@@ -53,6 +54,7 @@ type Clients struct {
 	InstallerClient   grpc_installer_go.InstallerClient
 	ProvisionerClient grpc_provisioner_go.ProvisionClient
 	ScalerClient      grpc_provisioner_go.ScaleClient
+	AppClient         grpc_application_go.ApplicationsClient
 }
 
 // GetClients creates the required connections with the remote clients.
@@ -74,8 +76,10 @@ func (s *Service) GetClients() (*Clients, derrors.Error) {
 	iClient := grpc_installer_go.NewInstallerClient(insConn)
 	pClient := grpc_provisioner_go.NewProvisionClient(provConn)
 	scClient := grpc_provisioner_go.NewScaleClient(provConn)
+	appClient := grpc_application_go.NewApplicationsClient(smConn)
 
-	return &Clients{cClient, nClient, iClient, pClient, scClient}, nil
+	return &Clients{cClient, nClient, iClient,
+		pClient, scClient, appClient}, nil
 }
 
 // Run the service, launch the REST service handler.
@@ -110,7 +114,7 @@ func (s *Service) Run() error {
 	manager := infrastructure.NewManager(
 		s.Configuration.TempDir,
 		clients.ClusterClient, clients.NodesClient, clients.InstallerClient,
-		clients.ProvisionerClient, clients.ScalerClient, busManager)
+		clients.ProvisionerClient, clients.ScalerClient, clients.AppClient, busManager)
 	handler := infrastructure.NewHandler(manager)
 
 	grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(s.Server, handler)
