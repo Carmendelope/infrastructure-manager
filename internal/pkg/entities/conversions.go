@@ -17,7 +17,7 @@
 package entities
 
 import (
-	grpc_common_go "github.com/nalej/grpc-common-go"
+	"github.com/nalej/grpc-common-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-installer-go"
 )

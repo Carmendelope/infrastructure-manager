@@ -26,7 +26,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
-	grpc_application_go "github.com/nalej/grpc-application-go"
+	"github.com/nalej/grpc-application-go"
 	"github.com/nalej/grpc-connectivity-manager-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"

@@ -19,7 +19,7 @@ package server
 import (
 	"fmt"
 	"github.com/nalej/derrors"
-	grpc_application_go "github.com/nalej/grpc-application-go"
+	"github.com/nalej/grpc-application-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
