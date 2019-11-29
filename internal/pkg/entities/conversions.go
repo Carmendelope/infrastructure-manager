@@ -17,6 +17,7 @@
 package entities
 
 import (
+	"github.com/nalej/grpc-common-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-installer-go"
 )
@@ -46,6 +47,23 @@ func InstallStateToNodeState(state grpc_installer_go.InstallProgress) grpc_infra
 	case grpc_installer_go.InstallProgress_FINISHED:
 		newState = grpc_infrastructure_go.NodeState_ASSIGNED
 	case grpc_installer_go.InstallProgress_ERROR:
+		newState = grpc_infrastructure_go.NodeState_UNREGISTERED
+	}
+	return newState
+}
+
+func OpStatusToNodeState(status grpc_common_go.OpStatus) grpc_infrastructure_go.NodeState {
+	var newState grpc_infrastructure_go.NodeState
+	switch status {
+	case grpc_common_go.OpStatus_INIT:
+		newState = grpc_infrastructure_go.NodeState_UNASSIGNED
+	case grpc_common_go.OpStatus_SCHEDULED:
+		newState = grpc_infrastructure_go.NodeState_UNASSIGNED
+	case grpc_common_go.OpStatus_INPROGRESS:
+		newState = grpc_infrastructure_go.NodeState_UNASSIGNED
+	case grpc_common_go.OpStatus_SUCCESS:
+		newState = grpc_infrastructure_go.NodeState_ASSIGNED
+	case grpc_common_go.OpStatus_FAILED:
 		newState = grpc_infrastructure_go.NodeState_UNREGISTERED
 	}
 	return newState

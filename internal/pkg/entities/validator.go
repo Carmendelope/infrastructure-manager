@@ -59,8 +59,8 @@ func ValidInstallRequest(installRequest *grpc_installer_go.InstallRequest) derro
 	if installRequest.ClusterId != "" {
 		return derrors.NewInvalidArgumentError("cluster_id must be nil, and set by this component")
 	}
-	if installRequest.InstallId != "" {
-		return derrors.NewInvalidArgumentError("install_id must be nil, and set by this component")
+	if installRequest.RequestId != "" {
+		return derrors.NewInvalidArgumentError("request_id must be nil, and set by this component")
 	}
 
 	authFound := false
@@ -125,7 +125,7 @@ func ValidProvisionClusterRequest(request *grpc_provisioner_go.ProvisionClusterR
 }
 
 // ValidScaleClusterRequest checks that the scale request contains the required values.
-func ValidScaleClusterRequest(request *grpc_provisioner_go.ScaleClusterRequest) derrors.Error{
+func ValidScaleClusterRequest(request *grpc_provisioner_go.ScaleClusterRequest) derrors.Error {
 	if request.RequestId != "" {
 		return derrors.NewInvalidArgumentError("request_id is set by infrastructure-manager")
 	}
@@ -138,7 +138,47 @@ func ValidScaleClusterRequest(request *grpc_provisioner_go.ScaleClusterRequest) 
 	if request.IsManagementCluster {
 		return derrors.NewInvalidArgumentError("can only scale application clusters")
 	}
-	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && request.AzureCredentials == nil{
+	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && request.AzureCredentials == nil {
+		return derrors.NewInvalidArgumentError("azure_credentials cannot be empty")
+	}
+	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && (request.AzureOptions == nil || request.AzureOptions.ResourceGroup == "") {
+		return derrors.NewInvalidArgumentError("azure_options.resource_group cannot be empty")
+	}
+	return nil
+}
+
+// ValidUninstallClusterRequest checks that the uninstall request contains the required values.
+func ValidUninstallClusterRequest(request *grpc_installer_go.UninstallClusterRequest) derrors.Error {
+	if request.RequestId != "" {
+		return derrors.NewInvalidArgumentError("request_id is set by infrastructure-manager")
+	}
+	if request.OrganizationId == "" {
+		return derrors.NewInvalidArgumentError(emptyOrganizationId)
+	}
+	if request.ClusterId == "" {
+		return derrors.NewInvalidArgumentError(emptyClusterId)
+	}
+	if request.KubeConfigRaw == "" {
+		return derrors.NewInvalidArgumentError("kube_config_raw cannot be empty")
+	}
+	return nil
+}
+
+// ValidDecomissionClusterRequest checks that the decomission request contains the required values.
+func ValidDecomissionClusterRequest(request *grpc_provisioner_go.DecomissionClusterRequest) derrors.Error {
+	if request.RequestId != "" {
+		return derrors.NewInvalidArgumentError("request_id is set by infrastructure-manager")
+	}
+	if request.OrganizationId == "" {
+		return derrors.NewInvalidArgumentError(emptyOrganizationId)
+	}
+	if request.ClusterId == "" {
+		return derrors.NewInvalidArgumentError(emptyClusterId)
+	}
+	if request.IsManagementCluster {
+		return derrors.NewInvalidArgumentError("can only decomission application clusters")
+	}
+	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && request.AzureCredentials == nil {
 		return derrors.NewInvalidArgumentError("azure_credentials cannot be empty")
 	}
 	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && (request.AzureOptions == nil || request.AzureOptions.ResourceGroup == "") {

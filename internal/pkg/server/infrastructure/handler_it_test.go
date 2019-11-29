@@ -26,6 +26,7 @@ package infrastructure
 import (
 	"context"
 	"fmt"
+	"github.com/nalej/grpc-application-go"
 	"github.com/nalej/grpc-connectivity-manager-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-infrastructure-manager-go"
@@ -37,6 +38,7 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	"github.com/rs/zerolog/log"
+	uuid "github.com/satori/go.uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/test/bufconn"
 	"io/ioutil"
@@ -103,6 +105,7 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 	var installerClient grpc_installer_go.InstallerClient
 	var provisionerClient grpc_provisioner_go.ProvisionClient
 	var scaleClient grpc_provisioner_go.ScaleClient
+	var appClient grpc_application_go.ApplicationsClient
 
 	var smConn *grpc.ClientConn
 	var instConn *grpc.ClientConn
@@ -131,11 +134,12 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 		provConn = utils.GetConnection(provisionerAddress)
 		provisionerClient = grpc_provisioner_go.NewProvisionClient(provConn)
 		scaleClient = grpc_provisioner_go.NewScaleClient(provConn)
+		appClient = grpc_application_go.NewApplicationsClient(smConn)
 
 		conn, err := test.GetConn(*listener)
 		gomega.Expect(err).To(gomega.Succeed())
 
-		manager := NewManager(tempDir, clusterClient, nodesClient, installerClient, provisionerClient, scaleClient, nil)
+		manager := NewManager(tempDir, clusterClient, nodesClient, installerClient, provisionerClient, scaleClient, appClient, nil)
 		handler := NewHandler(manager)
 		grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(server, handler)
 		test.LaunchServer(server, listener)
@@ -165,7 +169,7 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 
 			installRequest := &grpc_installer_go.InstallRequest{
 				OrganizationId:    targetOrganization.OrganizationId,
-				ClusterId:         "",
+				ClusterId:         uuid.NewV4().String(),
 				ClusterType:       grpc_infrastructure_go.ClusterType_KUBERNETES,
 				InstallBaseSystem: false,
 				KubeConfigRaw:     kubeConfigRaw,
@@ -175,14 +179,14 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 			}
 			installResponse, err := client.InstallCluster(context.Background(), installRequest)
 			gomega.Expect(err).To(gomega.Succeed())
-			gomega.Expect(installResponse.ClusterId).ShouldNot(gomega.BeEmpty())
+			gomega.Expect(installResponse.RequestId).ShouldNot(gomega.BeEmpty())
 			gomega.Expect(installResponse.Error).Should(gomega.BeEmpty())
 
 			log.Debug().Interface("response", installResponse).Msg("Installation in progress")
 			// Wait for the install to finish
 			clusterID := &grpc_infrastructure_go.ClusterId{
 				OrganizationId: targetOrganization.OrganizationId,
-				ClusterId:      installResponse.ClusterId,
+				ClusterId:      installRequest.ClusterId,
 			}
 
 			finished := false
@@ -196,7 +200,7 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 				}
 			}
 
-			checkClusterAndNodes(targetOrganization.OrganizationId, installResponse.ClusterId, systemModelAddress)
+			checkClusterAndNodes(targetOrganization.OrganizationId, installRequest.ClusterId, systemModelAddress)
 		})
 	})
 

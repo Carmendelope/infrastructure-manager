@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nalej/derrors"
+	"github.com/nalej/grpc-application-go"
 	"github.com/nalej/grpc-common-go"
 	"github.com/nalej/grpc-conductor-go"
 	"github.com/nalej/grpc-connectivity-manager-go"
@@ -55,6 +56,7 @@ type Manager struct {
 	installerClient   grpc_installer_go.InstallerClient
 	provisionerClient grpc_provisioner_go.ProvisionClient
 	scalerClient      grpc_provisioner_go.ScaleClient
+	appClient         grpc_application_go.ApplicationsClient
 	busManager        *bus.BusManager
 }
 
@@ -66,6 +68,7 @@ func NewManager(
 	installerClient grpc_installer_go.InstallerClient,
 	provisionerClient grpc_provisioner_go.ProvisionClient,
 	scalerClient grpc_provisioner_go.ScaleClient,
+	appClient grpc_application_go.ApplicationsClient,
 	busManager *bus.BusManager) Manager {
 	return Manager{
 		tempPath:          tempDir,
@@ -74,6 +77,7 @@ func NewManager(
 		installerClient:   installerClient,
 		provisionerClient: provisionerClient,
 		scalerClient:      scalerClient,
+		appClient:         appClient,
 		busManager:        busManager,
 	}
 }
@@ -139,7 +143,20 @@ func (m *Manager) addClusterToSM(requestID string, organizationID string, cluste
 			return nil, conversions.ToDerror(err)
 		}
 	}
-	return clusterAdded, nil
+
+	// Retrieve the cluster from system model so that it contains up-to-date information as required by the calling
+	// methods. Notice that the state of the cluster may be updated on other places.
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer cancel()
+	clusterID := &grpc_infrastructure_go.ClusterId{
+		OrganizationId: clusterAdded.OrganizationId,
+		ClusterId:      clusterAdded.ClusterId,
+	}
+	result, err := m.clusterClient.GetCluster(ctx, clusterID)
+	if err != nil {
+		return nil, conversions.ToDerror(err)
+	}
+	return result, nil
 }
 
 func (m *Manager) discoverCluster(requestID string, kubeConfig string, hostname string) (*entities.Cluster, derrors.Error) {
@@ -172,13 +189,13 @@ func (m *Manager) discoverCluster(requestID string, kubeConfig string, hostname 
 func (m *Manager) getOrCreateProvisionedCluster(installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_go.Cluster, derrors.Error) {
 	var result *grpc_infrastructure_go.Cluster
 	if installRequest.ClusterId == "" {
-		log.Debug().Str("requestID", installRequest.InstallId).Msg("Discovering cluster")
+		log.Debug().Str("requestID", installRequest.RequestId).Msg("Discovering cluster")
 		// Discover cluster
-		discovered, err := m.discoverCluster(installRequest.InstallId, installRequest.KubeConfigRaw, installRequest.Hostname)
+		discovered, err := m.discoverCluster(installRequest.RequestId, installRequest.KubeConfigRaw, installRequest.Hostname)
 		if err != nil {
 			return nil, err
 		}
-		added, err := m.addClusterToSM(installRequest.InstallId, installRequest.OrganizationId, *discovered, grpc_infrastructure_go.ClusterState_PROVISIONED)
+		added, err := m.addClusterToSM(installRequest.RequestId, installRequest.OrganizationId, *discovered, grpc_infrastructure_go.ClusterState_PROVISIONED)
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +243,9 @@ func (m *Manager) updateClusterState(organizationID string, clusterID string, ne
 	defer cancel()
 	_, err := m.clusterClient.UpdateCluster(ctx, updateRequest)
 	if err != nil {
-		return derrors.AsError(err, "cannot update cluster state")
+		dErr := conversions.ToDerror(err)
+		log.Error().Str("trace", dErr.DebugReport()).Msg("cannot update cluster state")
+		return dErr
 	}
 
 	// if correct send it to the bus
@@ -242,9 +261,10 @@ func (m *Manager) updateClusterState(organizationID string, clusterID string, ne
 
 // ProvisionAndInstallCluster provisions a new kubernetes cluster and then installs it
 func (m *Manager) ProvisionAndInstallCluster(provisionRequest *grpc_provisioner_go.ProvisionClusterRequest) (*grpc_infrastructure_manager_go.ProvisionerResponse, error) {
-	log.Debug().Interface("request", provisionRequest).Msg("ProvisionAndInstallCluster")
-	log.Debug().Str("platform", provisionRequest.TargetPlatform.String()).Msg("Target platform")
-	log.Debug().Str("cluster_name", provisionRequest.ClusterName).Msg("Cluster name")
+	log.Debug().Str("organizationID", provisionRequest.OrganizationId).
+		Str("platform", provisionRequest.TargetPlatform.String()).
+		Str("cluster_name", provisionRequest.ClusterName).
+		Msg("ProvisionAndInstallCluster")
 
 	toAdd := entities.Cluster{
 		Name:              provisionRequest.ClusterName,
@@ -280,7 +300,9 @@ func (m *Manager) ProvisionAndInstallCluster(provisionRequest *grpc_provisioner_
 // will trigger the installation of the platform.
 func (m *Manager) provisionCallback(requestID string, organizationID string, clusterID string,
 	lastResponse *grpc_provisioner_go.ProvisionClusterResponse, err derrors.Error) {
-	log.Debug().Str("requestID", requestID).Msg("provisioner callback received")
+	log.Debug().Str("requestID", requestID).
+		Str("organizationID", organizationID).Str("clusterID", clusterID).
+		Msg("provisioner callback received")
 	if err != nil {
 		log.Error().Str("err", err.DebugReport()).Msg("error callback received")
 	}
@@ -322,7 +344,7 @@ func (m *Manager) provisionCallback(requestID string, organizationID string, clu
 	}
 
 	installRequest := &grpc_installer_go.InstallRequest{
-		InstallId:         requestID,
+		RequestId:         requestID,
 		OrganizationId:    organizationID,
 		ClusterId:         clusterID,
 		ClusterType:       grpc_infrastructure_go.ClusterType_KUBERNETES,
@@ -339,75 +361,71 @@ func (m *Manager) provisionCallback(requestID string, organizationID string, clu
 	return
 }
 
-func (m *Manager) InstallCluster(installRequest *grpc_installer_go.InstallRequest) (*grpc_infrastructure_manager_go.InstallResponse, error) {
-	log.Debug().Interface("request", installRequest).Msg("InstallCluster")
-	log.Debug().Str("platform", installRequest.TargetPlatform.String()).Msg("Target platform")
-	log.Debug().Str("hostname", installRequest.Hostname).Msg("Public App cluster hostname")
-	cluster, err := m.getOrCreateProvisionedCluster(installRequest)
+func (m *Manager) InstallCluster(request *grpc_installer_go.InstallRequest) (*grpc_common_go.OpResponse, error) {
+	log.Debug().Str("organizationID", request.OrganizationId).Str("clusterID", request.ClusterId).
+		Str("platform", request.TargetPlatform.String()).
+		Str("hostname", request.Hostname).Msg("InstallCluster")
+	cluster, err := m.getOrCreateProvisionedCluster(request)
 	if err != nil {
 		return nil, conversions.ToGRPCError(err)
 	}
-	if installRequest.InstallBaseSystem {
+	if request.InstallBaseSystem {
 		return nil, derrors.NewUnimplementedError("InstallBaseSystem not supported")
 	}
-	installRequest.ClusterId = cluster.ClusterId
+	request.ClusterId = cluster.ClusterId
 	if cluster.State != grpc_infrastructure_go.ClusterState_PROVISIONED {
 		return nil, derrors.NewInvalidArgumentError("selected cluster is not ready for install")
 	}
-	err = m.updateClusterState(installRequest.OrganizationId, installRequest.ClusterId, grpc_infrastructure_go.ClusterState_INSTALL_IN_PROGRESS)
+	err = m.updateClusterState(request.OrganizationId, request.ClusterId, grpc_infrastructure_go.ClusterState_INSTALL_IN_PROGRESS)
 	if err != nil {
 		log.Error().Str("trace", err.DebugReport()).Msg("cannot update cluster state")
 		return nil, err
 	}
-	log.Debug().Str("clusterID", installRequest.ClusterId).Msg("installing cluster")
-	installerResponse, iErr := m.installerClient.InstallCluster(context.Background(), installRequest)
+	log.Debug().Str("clusterID", request.ClusterId).Msg("installing cluster")
+	response, iErr := m.installerClient.InstallCluster(context.Background(), request)
 	if iErr != nil {
 		return nil, iErr
 	}
-	log.Debug().Interface("state", installerResponse.State).Msg("cluster is being installed")
-	installResponse := &grpc_infrastructure_manager_go.InstallResponse{
-		InstallId:      installerResponse.InstallId,
-		OrganizationId: installRequest.OrganizationId,
-		ClusterId:      installRequest.ClusterId,
-		State:          installerResponse.State,
-		Error:          installerResponse.Error,
-	}
-	mon := monitor.NewInstallerMonitor(m.installerClient, m.clusterClient, *installResponse)
+	log.Debug().Interface("status", response.Status.String()).Msg("cluster is being installed")
+	mon := monitor.NewInstallerMonitor(request.ClusterId, m.installerClient, m.clusterClient, *response)
 	mon.RegisterCallback(m.installCallback)
 	go mon.LaunchMonitor()
-	return installResponse, nil
+	return response, nil
 }
 
 // installCallback function called when a install operation has finished on the installer.
 func (m *Manager) installCallback(
-	installID string, organizationID string, clusterID string,
-	lastResponse *grpc_installer_go.InstallResponse, err derrors.Error) {
-	log.Debug().Str("installID", installID).Msg("installer callback received")
+	requestID string, organizationID string, clusterID string,
+	response *grpc_common_go.OpResponse, err derrors.Error) {
+	log.Debug().Str("requestID", requestID).
+		Str("organizationID", organizationID).Str("clusterID", clusterID).
+		Msg("installer callback received for install operation")
 	if err != nil {
 		log.Error().Str("err", err.DebugReport()).Msg("error callback received")
 	}
-	if lastResponse == nil {
+	if response == nil {
 		return
 	}
 
 	newState := grpc_infrastructure_go.ClusterState_INSTALLED
-	if err != nil || lastResponse.State == grpc_installer_go.InstallProgress_ERROR {
+	if err != nil || response.Status == grpc_common_go.OpStatus_FAILED {
 		newState = grpc_infrastructure_go.ClusterState_FAILURE
-		log.Warn().Str("installID", installID).Str("organizationID", organizationID).Str("clusterID", clusterID).Msg("installation failed")
+		log.Warn().Str("requestID", requestID).Str("organizationID", organizationID).
+			Str("clusterID", clusterID).Str("error", response.Error).Msg("installation failed")
 	}
 	err = m.updateClusterState(organizationID, clusterID, newState)
 	if err != nil {
 		log.Error().Msg("unable to update cluster state after install")
 	}
-	// TODO Refactor to update nodes accordingly.
-	// Get the list of nodes
+
+	// Get the list of nodes, and updates the nodes.
 	cID := &grpc_infrastructure_go.ClusterId{
 		OrganizationId: organizationID,
 		ClusterId:      clusterID,
 	}
 	nodes, nErr := m.nodesClient.ListNodes(context.Background(), cID)
 	if err != nil {
-		log.Error().Str("err", conversions.ToDerror(nErr).DebugReport()).Msg("cannot obtain the list of nodes in the cluster")
+		log.Error().Str("err", conversions.ToDerror(nErr).DebugReport()).Msg("cannot obtain the list of nodes in the cluster on install callback")
 		return
 	}
 
@@ -418,7 +436,7 @@ func (m *Manager) installCallback(
 			UpdateStatus:   true,
 			Status:         n.Status,
 			UpdateState:    true,
-			State:          entities.InstallStateToNodeState(lastResponse.State),
+			State:          entities.OpStatusToNodeState(response.Status),
 		}
 		_, updateErr := m.nodesClient.UpdateNode(context.Background(), updateNodeRequest)
 		if updateErr != nil {
@@ -427,12 +445,15 @@ func (m *Manager) installCallback(
 		}
 		log.Debug().Str("organizationID", organizationID).Str("nodeId", n.NodeId).Interface("newStatus", n.Status).Msg("Node status updated")
 	}
+	log.Debug().Str("requestID", requestID).
+		Str("organizationID", organizationID).Str("clusterID", clusterID).
+		Msg("cluster has been installed")
 }
 
 // Scale the number of nodes in the cluster.
 func (m *Manager) Scale(request *grpc_provisioner_go.ScaleClusterRequest) (*grpc_infrastructure_manager_go.ProvisionerResponse, derrors.Error) {
 	log.Debug().Str("organizationID", request.OrganizationId).Str("clusterID", request.ClusterId).
-		Str("platform", request.TargetPlatform.String()).Interface("request", request).Msg("Scale request")
+		Str("platform", request.TargetPlatform.String()).Msg("Scale request")
 	// Get the cluster and check the current state
 	retrieved, err := m.getCluster(request.OrganizationId, request.ClusterId)
 	if err != nil {
@@ -491,9 +512,7 @@ func (m *Manager) scaleCallback(requestID string, organizationID string, cluster
 	err = m.updateClusterState(organizationID, clusterID, newState)
 	if err != nil {
 		log.Error().Msg("unable to update cluster state after scale")
-		return
 	}
-	return
 }
 
 // GetCluster retrieves the cluster information.
@@ -613,4 +632,164 @@ func (m *Manager) ListNodes(clusterID *grpc_infrastructure_go.ClusterId) (*grpc_
 // RemoveNodes removes a set of nodes from the system.
 func (m *Manager) RemoveNodes(removeNodesRequest *grpc_infrastructure_go.RemoveNodesRequest) (*grpc_common_go.Success, error) {
 	return nil, derrors.NewUnimplementedError("RemoveNodes is not implemented yet")
+}
+
+// UninstallCluster proceeds to remove all Nalej created elements in that cluster.
+func (m *Manager) Uninstall(request *grpc_installer_go.UninstallClusterRequest) (*grpc_common_go.OpResponse, derrors.Error) {
+	log.Debug().Str("requestID", request.RequestId).
+		Str("organizationID", request.OrganizationId).Str("clusterID", request.ClusterId).
+		Str("platform", request.TargetPlatform.String()).Msg("Uninstall request")
+	canUninstallErr := m.canUninstallCluster(request.OrganizationId, request.ClusterId)
+	if canUninstallErr != nil {
+		return nil, canUninstallErr
+	}
+	// The cluster can be uninstalled, update its state
+	err := m.updateClusterState(request.OrganizationId, request.ClusterId, grpc_infrastructure_go.ClusterState_UNINSTALLING)
+	if err != nil {
+		return nil, err
+	}
+	// Send the request to the provisioner component
+	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer cancel()
+	response, uErr := m.installerClient.UninstallCluster(ctx, request)
+	if uErr != nil {
+		// Update the state to error
+		err = m.updateClusterState(request.OrganizationId, request.ClusterId, grpc_infrastructure_go.ClusterState_FAILURE)
+		if err != nil {
+			log.Error().Str("trace", err.DebugReport()).Msg("cannot update failed cluster uninstall")
+		}
+		return nil, conversions.ToDerror(uErr)
+	}
+	log.Debug().Str("requestID", request.RequestId).
+		Str("organizationID", request.OrganizationId).Str("clusterID", request.ClusterId).
+		Msg("cluster is uninstalling")
+	mon := monitor.NewInstallerMonitor(request.ClusterId, m.installerClient, m.clusterClient, *response)
+	mon.RegisterCallback(m.uninstallCallback)
+	go mon.LaunchMonitor()
+	return response, nil
+}
+
+// uninstallCallback function called when an uninstall operation has finished on the installer.
+func (m *Manager) uninstallCallback(
+	requestID string, organizationID string, clusterID string,
+	response *grpc_common_go.OpResponse, err derrors.Error) {
+	log.Debug().Str("requestID", requestID).
+		Str("organizationID", organizationID).Str("clusterID", clusterID).
+		Msg("installer callback received for uninstall operation")
+	if err != nil {
+		log.Error().Str("err", err.DebugReport()).Msg("error callback received")
+	}
+	if response == nil {
+		return
+	}
+
+	newState := grpc_infrastructure_go.ClusterState_PROVISIONED
+	if err != nil || response.Status == grpc_common_go.OpStatus_FAILED {
+		newState = grpc_infrastructure_go.ClusterState_FAILURE
+		log.Warn().Str("requestID", requestID).Str("organizationID", organizationID).
+			Str("clusterID", clusterID).Str("error", response.Error).Msg("uninstall failed")
+	}
+	err = m.updateClusterState(organizationID, clusterID, newState)
+	if err != nil {
+		log.Error().Msg("unable to update cluster state after uninstall")
+	}
+	log.Debug().Str("requestID", requestID).
+		Str("organizationID", organizationID).Str("clusterID", clusterID).
+		Msg("cluster has been uninstalled")
+}
+
+// DecomissionCluster frees the resources of a given cluster.
+func (m *Manager) DecomissionCluster(request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, derrors.Error) {
+	// 1. Retrieve the kubeconfig from provisioner.GetKubeConfig(ClusterRequest) returns (KubeConfigResponse){}
+	// 2. Trigger uninstall
+	// 3. Trigger decomission
+	panic("implement me")
+}
+
+// canUninstallCluster checks the current state of the cluster to confirm that an
+// uninstall operation may be executed.
+func (m *Manager) canUninstallCluster(organizationID string, clusterID string) derrors.Error {
+	cID := &grpc_infrastructure_go.ClusterId{
+		OrganizationId: organizationID,
+		ClusterId:      clusterID,
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer cancel()
+
+	cluster, err := m.clusterClient.GetCluster(ctx, cID)
+	if err != nil {
+		return conversions.ToDerror(err)
+	}
+	// Check if the cluster has applications deployed on it
+	hasApps, hErr := m.clusterHasApps(organizationID, clusterID)
+	if hErr != nil {
+		return hErr
+	}
+	if hasApps {
+		return derrors.NewFailedPreconditionError("target cluster has deployed applications")
+	}
+	if cluster.ClusterStatus != grpc_connectivity_manager_go.ClusterStatus_ONLINE_CORDON {
+		return derrors.NewFailedPreconditionError("target cluster must be online and cordoned")
+	}
+	return nil
+}
+
+// clusterHasApps checks if any service is deployed on the given cluster.
+func (m *Manager) clusterHasApps(organizationID string, clusterID string) (bool, derrors.Error) {
+	ctx, cancel := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer cancel()
+	orgID := &grpc_organization_go.OrganizationId{
+		OrganizationId: organizationID,
+	}
+	instances, err := m.appClient.ListAppInstances(ctx, orgID)
+	if err != nil {
+		return false, conversions.ToDerror(err)
+	}
+	for _, inst := range instances.Instances {
+		for _, sg := range inst.Groups {
+			for _, s := range sg.ServiceInstances {
+				if s.OrganizationId == organizationID && s.DeployedOnClusterId == clusterID {
+					return true, nil
+				}
+			}
+		}
+	}
+	return false, nil
+}
+
+// removeClusterNodes removes all nodes associated with a cluster.
+func (m *Manager) removeClusterNodes(requestID string, organizationID string, clusterID string) derrors.Error {
+	cID := &grpc_infrastructure_go.ClusterId{
+		OrganizationId: organizationID,
+		ClusterId:      clusterID,
+	}
+	// Get all nodes to obtain the ids
+	listCtx, listCancel := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer listCancel()
+
+	nodes, nErr := m.nodesClient.ListNodes(listCtx, cID)
+	if nErr != nil {
+		toDerr := conversions.ToDerror(nErr)
+		log.Error().Str("err", toDerr.DebugReport()).Msg("cannot obtain the list of nodes in the cluster")
+		return toDerr
+	}
+
+	nodeIds := make([]string, 0)
+	for _, n := range nodes.Nodes {
+		nodeIds = append(nodeIds, n.NodeId)
+	}
+	// Remove cluster nodes
+	removeCtx, removeCancel := context.WithTimeout(context.Background(), InfrastructureManagerTimeout)
+	defer removeCancel()
+
+	removeRequest := &grpc_infrastructure_go.RemoveNodesRequest{
+		RequestId:      requestID,
+		OrganizationId: organizationID,
+		Nodes:          nodeIds,
+	}
+	_, err := m.nodesClient.RemoveNodes(removeCtx, removeRequest)
+	if err != nil {
+		return conversions.ToDerror(err)
+	}
+	return nil
 }

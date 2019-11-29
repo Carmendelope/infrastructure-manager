@@ -19,8 +19,8 @@ package monitor
 import (
 	"context"
 	"github.com/nalej/derrors"
+	"github.com/nalej/grpc-common-go"
 	"github.com/nalej/grpc-infrastructure-go"
-	"github.com/nalej/grpc-infrastructure-manager-go"
 	"github.com/nalej/grpc-installer-go"
 	"github.com/nalej/grpc-utils/pkg/conversions"
 	"github.com/rs/zerolog/log"
@@ -29,18 +29,21 @@ import (
 
 // InstallerMonitor structure with the required clients to read and update states of an install.
 type InstallerMonitor struct {
+	clusterID         string
 	installerClient   grpc_installer_go.InstallerClient
 	clusterClient     grpc_infrastructure_go.ClustersClient
-	installerResponse grpc_infrastructure_manager_go.InstallResponse
-	callback          func(string, string, string, *grpc_installer_go.InstallResponse, derrors.Error)
+	installerResponse grpc_common_go.OpResponse
+	callback          func(string, string, string, *grpc_common_go.OpResponse, derrors.Error)
 }
 
 // NewInstallerMonitor creates a new monitor with a set of clients.
 func NewInstallerMonitor(
+	clusterID string,
 	installerClient grpc_installer_go.InstallerClient,
 	clusterClient grpc_infrastructure_go.ClustersClient,
-	installerResponse grpc_infrastructure_manager_go.InstallResponse) *InstallerMonitor {
+	installerResponse grpc_common_go.OpResponse) *InstallerMonitor {
 	return &InstallerMonitor{
+		clusterID:         clusterID,
 		installerClient:   installerClient,
 		clusterClient:     clusterClient,
 		installerResponse: installerResponse,
@@ -50,66 +53,68 @@ func NewInstallerMonitor(
 
 // RegisterCallback registers a callback function that will be triggered
 // when the installation of a cluster finishes.
-func (m *InstallerMonitor) RegisterCallback(callback func(installID string, organizationID string, clusterID string, lastResponse *grpc_installer_go.InstallResponse, err derrors.Error)) {
+func (m *InstallerMonitor) RegisterCallback(callback func(installID string, organizationID string, clusterID string, lastResponse *grpc_common_go.OpResponse, err derrors.Error)) {
 	m.callback = callback
 }
 
 // LaunchMonitor periodically monitors the state of an install waiting for it to complete.
 func (m *InstallerMonitor) LaunchMonitor() {
-	log.Debug().Str("clusterID", m.installerResponse.ClusterId).
-		Str("installID", m.installerResponse.InstallId).Msg("Launching installation monitor")
+	log.Debug().Str("requestID", m.installerResponse.RequestId).
+		Str("OrganizationID", m.installerResponse.OrganizationId).Str("clusterID", m.clusterID).
+		Msg("Launching installer monitor")
 
-	installID := &grpc_installer_go.InstallId{
-		InstallId: m.installerResponse.InstallId,
+	requestID := &grpc_common_go.RequestId{
+		RequestId: m.installerResponse.RequestId,
 	}
 	exit := false
 	remainingFailures := MaxConnFailures
-	var status *grpc_installer_go.InstallResponse
+	var response *grpc_common_go.OpResponse
 	var err error
 	for !exit {
-		status, err = m.installerClient.CheckProgress(context.Background(), installID)
+		response, err = m.installerClient.CheckProgress(context.Background(), requestID)
 		if err != nil {
 			log.Debug().Str("err", conversions.ToDerror(err).DebugReport()).Msg("error requesting installing status")
 			remainingFailures--
 			if remainingFailures == 0 {
-				log.Warn().Str("installID", installID.InstallId).Msg("Cannot contact installer")
+				log.Warn().Str("requestID", requestID.RequestId).Msg("Cannot contact installer")
 				exit = true
 			} else {
 				time.Sleep(ConnectRetryDelay)
 			}
 		} else {
-			log.Debug().Str("installID", installID.InstallId).Int64("elapsed", status.ElapsedTime).Msg("processing install progress")
-			if status.Error != "" || status.State == grpc_installer_go.InstallProgress_ERROR || status.State == grpc_installer_go.InstallProgress_FINISHED {
+			log.Debug().Str("requestID", response.RequestId).Int64("elapsed", response.ElapsedTime).Msg("processing operation progress")
+			if response.Error != "" || response.Status == grpc_common_go.OpStatus_FAILED || response.Status == grpc_common_go.OpStatus_SUCCESS {
 				exit = true
 			} else {
 				time.Sleep(QueryDelay)
 			}
 		}
 	}
-	m.notify(status, err)
-	log.Debug().Str("clusterID", m.installerResponse.ClusterId).
-		Str("installID", m.installerResponse.InstallId).Msg("Install monitor exits")
+	m.notify(response, err)
+	log.Debug().Str("requestID", response.RequestId).Str("organizationID", response.OrganizationId).
+		Str("clusterID", m.clusterID).Msg("Installer monitor exits")
 }
 
 // notify informs the associated callback that the installation has finished.
-func (m *InstallerMonitor) notify(lastResponse *grpc_installer_go.InstallResponse, err error) {
-	removeInstallRequest := &grpc_installer_go.RemoveInstallRequest{
-		InstallId: lastResponse.InstallId,
+func (m *InstallerMonitor) notify(lastResponse *grpc_common_go.OpResponse, err error) {
+	removeInstallRequest := &grpc_common_go.RequestId{
+		RequestId: lastResponse.RequestId,
 	}
 	_, rErr := m.installerClient.RemoveInstall(context.Background(), removeInstallRequest)
 	if rErr != nil {
-		log.Error().Str("installID", m.installerResponse.InstallId).
-			Str("err", conversions.ToDerror(rErr).DebugReport()).Msg("Cannot remove install from installer")
+		log.Error().Str("requestID", m.installerResponse.RequestId).
+			Str("err", conversions.ToDerror(rErr).DebugReport()).Msg("Cannot remove operation from installer")
 	}
 	var cErr derrors.Error
 	if err != nil {
 		cErr = conversions.ToDerror(err)
 	}
 	if m.callback != nil {
-		m.callback(m.installerResponse.InstallId, m.installerResponse.OrganizationId, m.installerResponse.ClusterId,
+		m.callback(m.installerResponse.RequestId,
+			m.installerResponse.OrganizationId, m.clusterID,
 			lastResponse, cErr)
 	} else {
-		log.Warn().Str("installID", m.installerResponse.InstallId).
+		log.Warn().Str("requestID", m.installerResponse.RequestId).
 			Msg("no callback registered")
 	}
 }

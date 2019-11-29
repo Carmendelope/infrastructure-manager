@@ -48,6 +48,13 @@ In order to have all dependencies up-to-date run:
 dep ensure -update -v
 ```
 
+## Known issues
+
+* The monitoring system of ongoing requests will not be able to continue in the event of a failure of the
+infrastructure-manager. A refactor where messages are sent to the bus by the provisioner and installer components
+and consumed by the infrastructure-manager will increase the reliability and scalability of the system. This
+refactor is planned for future versions of the platform (NP-2429).
+
 ## Contributing
 
 Please read [contributing.md](contributing.md) for details on our code of conduct, and the process for submitting pull requests to us.
