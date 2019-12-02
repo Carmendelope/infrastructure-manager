@@ -8,6 +8,9 @@
   "image_list": [
     "infrastructure-manager"
   ],
+  "component_list": [
+    "infrastructure-manager"
+  ],
   "tools": [
     "k8s",
     "docker"
