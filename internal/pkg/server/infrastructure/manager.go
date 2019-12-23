@@ -50,14 +50,16 @@ const (
 
 // Manager structure with the remote clients required to coordinate infrastructure operations.
 type Manager struct {
-	tempPath          string
-	clusterClient     grpc_infrastructure_go.ClustersClient
-	nodesClient       grpc_infrastructure_go.NodesClient
-	installerClient   grpc_installer_go.InstallerClient
-	provisionerClient grpc_provisioner_go.ProvisionClient
-	scalerClient      grpc_provisioner_go.ScaleClient
-	appClient         grpc_application_go.ApplicationsClient
-	busManager        *bus.BusManager
+	tempPath           string
+	clusterClient      grpc_infrastructure_go.ClustersClient
+	nodesClient        grpc_infrastructure_go.NodesClient
+	installerClient    grpc_installer_go.InstallerClient
+	provisionerClient  grpc_provisioner_go.ProvisionClient
+	scalerClient       grpc_provisioner_go.ScaleClient
+	managementClient   grpc_provisioner_go.ManagementClient
+	decommissionClient grpc_provisioner_go.DecomissionClient
+	appClient          grpc_application_go.ApplicationsClient
+	busManager         *bus.BusManager
 }
 
 // NewManager creates a new manager.
@@ -68,17 +70,21 @@ func NewManager(
 	installerClient grpc_installer_go.InstallerClient,
 	provisionerClient grpc_provisioner_go.ProvisionClient,
 	scalerClient grpc_provisioner_go.ScaleClient,
+	managementClient grpc_provisioner_go.ManagementClient,
+	decommissionClient grpc_provisioner_go.DecomissionClient,
 	appClient grpc_application_go.ApplicationsClient,
 	busManager *bus.BusManager) Manager {
 	return Manager{
-		tempPath:          tempDir,
-		clusterClient:     clusterClient,
-		nodesClient:       nodesClient,
-		installerClient:   installerClient,
-		provisionerClient: provisionerClient,
-		scalerClient:      scalerClient,
-		appClient:         appClient,
-		busManager:        busManager,
+		tempPath:           tempDir,
+		clusterClient:      clusterClient,
+		nodesClient:        nodesClient,
+		installerClient:    installerClient,
+		provisionerClient:  provisionerClient,
+		scalerClient:       scalerClient,
+		managementClient:   managementClient,
+		decommissionClient: decommissionClient,
+		appClient:          appClient,
+		busManager:         busManager,
 	}
 }
 
@@ -701,9 +707,69 @@ func (m *Manager) uninstallCallback(
 // DecomissionCluster frees the resources of a given cluster.
 func (m *Manager) DecomissionCluster(request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, derrors.Error) {
 	// 1. Retrieve the kubeconfig from provisioner.GetKubeConfig(ClusterRequest) returns (KubeConfigResponse){}
+	getKubeConfigCtx, getKubeConfigCancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer getKubeConfigCancel()
+	kubeConfigResponse, err := m.managementClient.GetKubeConfig(getKubeConfigCtx, &grpc_provisioner_go.ClusterRequest{
+		RequestId:           request.GetRequestId(),
+		OrganizationId:      request.GetOrganizationId(),
+		ClusterId:           request.GetClusterId(),
+		ClusterType:         request.GetClusterType(),
+		IsManagementCluster: request.GetIsManagementCluster(),
+		TargetPlatform:      request.GetTargetPlatform(),
+		AzureCredentials:    request.GetAzureCredentials(),
+		AzureOptions:        request.GetAzureOptions(),
+	})
+	if err != nil {
+		derr := conversions.ToDerror(err)
+		log.Error().
+			Err(derr).
+			Str("DebugReport", derr.DebugReport()).
+			Interface("request", request).
+			Msg("unable to get kubeconfig from cluster")
+		return nil, derr
+	}
 	// 2. Trigger uninstall
+	uninstallRequest := grpc_installer_go.UninstallClusterRequest{
+		RequestId:      request.GetRequestId(),
+		OrganizationId: request.GetOrganizationId(),
+		ClusterId:      request.GetClusterId(),
+		ClusterType:    request.GetClusterType(),
+		KubeConfigRaw:  kubeConfigResponse.GetRawKubeConfig(),
+		TargetPlatform: request.GetTargetPlatform(),
+	}
+	_, derr := m.Uninstall(&uninstallRequest)
+	if derr != nil {
+		log.Error().
+			Err(derr).
+			Str("DebugReport", derr.DebugReport()).
+			Interface("request", uninstallRequest).
+			Msg("unable to uninstall cluster")
+		return nil, derr
+	}
 	// 3. Trigger decomission
-	panic("implement me")
+	decommissionCtx, decommissionCancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer decommissionCancel()
+	decommissionRequest := grpc_provisioner_go.DecomissionClusterRequest{
+		RequestId:           request.GetRequestId(),
+		OrganizationId:      request.GetOrganizationId(),
+		ClusterId:           request.GetClusterId(),
+		ClusterType:         request.GetClusterType(),
+		IsManagementCluster: request.GetIsManagementCluster(),
+		TargetPlatform:      request.GetTargetPlatform(),
+		AzureCredentials:    request.GetAzureCredentials(),
+		AzureOptions:        request.GetAzureOptions(),
+	}
+	decommissionResponse, err := m.decommissionClient.DecomissionCluster(decommissionCtx, &decommissionRequest)
+	if err != nil {
+		derr := conversions.ToDerror(err)
+		log.Error().
+			Err(derr).
+			Str("DebugReport", derr.DebugReport()).
+			Interface("request", decommissionRequest).
+			Msg("unable to decommission cluster")
+		return nil, derr
+	}
+	return decommissionResponse, nil
 }
 
 // canUninstallCluster checks the current state of the cluster to confirm that an
