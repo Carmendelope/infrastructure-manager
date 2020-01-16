@@ -335,6 +335,7 @@ func (m *Manager) provisionCallback(requestID string, organizationID string, clu
 	discovered, err := m.discoverCluster(requestID, lastResponse.RawKubeConfig, lastResponse.Hostname)
 	if err != nil {
 		log.Error().Msg("unable to discover cluster")
+		return
 	}
 	clusterUpdate := &grpc_infrastructure_go.UpdateClusterRequest{
 		OrganizationId:             organizationID,
@@ -430,7 +431,7 @@ func (m *Manager) installCallback(
 		ClusterId:      clusterID,
 	}
 	nodes, nErr := m.nodesClient.ListNodes(context.Background(), cID)
-	if err != nil {
+	if nErr != nil {
 		log.Error().Str("err", conversions.ToDerror(nErr).DebugReport()).Msg("cannot obtain the list of nodes in the cluster on install callback")
 		return
 	}
@@ -704,9 +705,9 @@ func (m *Manager) uninstallCallback(
 		Msg("cluster has been uninstalled")
 }
 
-// DecomissionCluster frees the resources of a given cluster.
-func (m *Manager) DecomissionCluster(request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, derrors.Error) {
-	// 1. Retrieve the kubeconfig from provisioner.GetKubeConfig(ClusterRequest) returns (KubeConfigResponse){}
+// UninstallAndDecomissionCluster frees the resources of a given cluster.
+func (m *Manager) UninstallAndDecomissionCluster(request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, derrors.Error) {
+	// Retrieve the kubeconfig from provisioner
 	getKubeConfigCtx, getKubeConfigCancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer getKubeConfigCancel()
 	kubeConfigResponse, err := m.managementClient.GetKubeConfig(getKubeConfigCtx, &grpc_provisioner_go.ClusterRequest{
@@ -728,7 +729,7 @@ func (m *Manager) DecomissionCluster(request *grpc_provisioner_go.DecomissionClu
 			Msg("unable to get kubeconfig from cluster")
 		return nil, derr
 	}
-	// 2. Trigger uninstall
+	// Trigger uninstall
 	uninstallRequest := grpc_installer_go.UninstallClusterRequest{
 		RequestId:      request.GetRequestId(),
 		OrganizationId: request.GetOrganizationId(),
