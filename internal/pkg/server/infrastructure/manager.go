@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -163,6 +163,54 @@ func (m *Manager) addClusterToSM(requestID string, organizationID string, cluste
 		return nil, conversions.ToDerror(err)
 	}
 	return result, nil
+}
+
+// removeClusterFromSM Removes the cluster entities from System Model
+func (m *Manager) removeClusterFromSM(requestId string, organizationId string, clusterId string) derrors.Error {
+	listNodesCtx, listNodesCancel := context.WithTimeout(context.Background(), DefaultTimeout)
+	defer listNodesCancel()
+	nodeList, err := m.nodesClient.ListNodes(listNodesCtx, &grpc_infrastructure_go.ClusterId{
+		OrganizationId: organizationId,
+		ClusterId:      clusterId,
+	})
+	if err != nil {
+		return conversions.ToDerror(err)
+	}
+
+	if len(nodeList.Nodes) > 0 {
+		removeNodesCtx, removeNodesCancel := context.WithTimeout(context.Background(), DefaultTimeout)
+		nodesToRemove := make([]string, 0, len(nodeList.Nodes))
+		for _, node := range nodeList.Nodes {
+			nodesToRemove = append(nodesToRemove, node.NodeId)
+		}
+		defer removeNodesCancel()
+		_, err = m.nodesClient.RemoveNodes(removeNodesCtx, &grpc_infrastructure_go.RemoveNodesRequest{
+			RequestId:      requestId,
+			OrganizationId: organizationId,
+			Nodes:          nodesToRemove,
+		})
+		if err != nil {
+			return conversions.ToDerror(err)
+		}
+	}
+
+	removeClusterRequest := &grpc_infrastructure_go.RemoveClusterRequest{
+		RequestId:      requestId,
+		OrganizationId: organizationId,
+		ClusterId:      clusterId,
+	}
+
+	log.Debug().
+		Str("requestId", requestId).
+		Str("organizationId", organizationId).
+		Str("clusterId", clusterId).
+		Msg("Removing cluster from SM")
+
+	_, err = m.clusterClient.RemoveCluster(context.Background(), removeClusterRequest)
+	if err != nil {
+		return conversions.ToDerror(err)
+	}
+	return nil
 }
 
 func (m *Manager) discoverCluster(requestID string, kubeConfig string, hostname string) (*entities.Cluster, derrors.Error) {
@@ -641,8 +689,8 @@ func (m *Manager) RemoveNodes(removeNodesRequest *grpc_infrastructure_go.RemoveN
 	return nil, derrors.NewUnimplementedError("RemoveNodes is not implemented yet")
 }
 
-// UninstallCluster proceeds to remove all Nalej created elements in that cluster.
-func (m *Manager) Uninstall(request *grpc_installer_go.UninstallClusterRequest) (*grpc_common_go.OpResponse, derrors.Error) {
+// Uninstall proceeds to remove all Nalej created elements in the cluster.
+func (m *Manager) Uninstall(request *grpc_installer_go.UninstallClusterRequest, decomissionCallback *monitor.DecomissionCallback) (*grpc_common_go.OpResponse, derrors.Error) {
 	log.Debug().Str("requestID", request.RequestId).
 		Str("organizationID", request.OrganizationId).Str("clusterID", request.ClusterId).
 		Str("platform", request.TargetPlatform.String()).Msg("Uninstall request")
@@ -672,6 +720,7 @@ func (m *Manager) Uninstall(request *grpc_installer_go.UninstallClusterRequest) 
 		Msg("cluster is uninstalling")
 	mon := monitor.NewInstallerMonitor(request.ClusterId, m.installerClient, m.clusterClient, *response)
 	mon.RegisterCallback(m.uninstallCallback)
+	mon.RegisterDecomissionCallback(decomissionCallback)
 	go mon.LaunchMonitor()
 	return response, nil
 }
@@ -738,7 +787,10 @@ func (m *Manager) UninstallAndDecomissionCluster(request *grpc_provisioner_go.De
 		KubeConfigRaw:  kubeConfigResponse.GetRawKubeConfig(),
 		TargetPlatform: request.GetTargetPlatform(),
 	}
-	_, derr := m.Uninstall(&uninstallRequest)
+	response, derr := m.Uninstall(&uninstallRequest, &monitor.DecomissionCallback{
+		Callback: m.Decommission,
+		Request:  request,
+	})
 	if derr != nil {
 		log.Error().
 			Err(derr).
@@ -747,7 +799,10 @@ func (m *Manager) UninstallAndDecomissionCluster(request *grpc_provisioner_go.De
 			Msg("unable to uninstall cluster")
 		return nil, derr
 	}
-	// 3. Trigger decomission
+	return response, nil
+}
+
+func (m *Manager) Decommission(request *grpc_provisioner_go.DecomissionClusterRequest) {
 	decommissionCtx, decommissionCancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer decommissionCancel()
 	decommissionRequest := grpc_provisioner_go.DecomissionClusterRequest{
@@ -760,17 +815,27 @@ func (m *Manager) UninstallAndDecomissionCluster(request *grpc_provisioner_go.De
 		AzureCredentials:    request.GetAzureCredentials(),
 		AzureOptions:        request.GetAzureOptions(),
 	}
-	decommissionResponse, err := m.decommissionClient.DecomissionCluster(decommissionCtx, &decommissionRequest)
+	decomissionerResponse, err := m.decommissionClient.DecomissionCluster(decommissionCtx, &decommissionRequest)
 	if err != nil {
 		derr := conversions.ToDerror(err)
 		log.Error().
 			Err(derr).
 			Str("DebugReport", derr.DebugReport()).
 			Interface("request", decommissionRequest).
+			Interface("response", decomissionerResponse).
 			Msg("unable to decommission cluster")
-		return nil, derr
+		return
 	}
-	return decommissionResponse, nil
+	mon := monitor.NewDecomissionerMonitor(m.decommissionClient, request.GetClusterId(), request.GetRequestId())
+	mon.RegisterCallback(m.decomissionCallback)
+	mon.LaunchMonitor()
+}
+
+func (m *Manager) decomissionCallback(clusterID string, lastResponse *grpc_common_go.OpResponse, err derrors.Error) {
+	err = m.removeClusterFromSM(lastResponse.GetRequestId(), lastResponse.GetOrganizationId(), clusterID)
+	if err != nil {
+		log.Error().Str("err", err.DebugReport()).Msg("could not remove cluster from SM")
+	}
 }
 
 // canUninstallCluster checks the current state of the cluster to confirm that an
