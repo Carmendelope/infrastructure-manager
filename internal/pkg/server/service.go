@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -55,7 +55,7 @@ type Clients struct {
 	ProvisionerClient  grpc_provisioner_go.ProvisionClient
 	ScalerClient       grpc_provisioner_go.ScaleClient
 	ManagementClient   grpc_provisioner_go.ManagementClient
-	DecommissionClient grpc_provisioner_go.DecomissionClient
+	DecommissionClient grpc_provisioner_go.DecommissionClient
 	AppClient          grpc_application_go.ApplicationsClient
 }
 
@@ -79,7 +79,7 @@ func (s *Service) GetClients() (*Clients, derrors.Error) {
 	pClient := grpc_provisioner_go.NewProvisionClient(provConn)
 	scClient := grpc_provisioner_go.NewScaleClient(provConn)
 	mnClient := grpc_provisioner_go.NewManagementClient(provConn)
-	dcClient := grpc_provisioner_go.NewDecomissionClient(provConn)
+	dcClient := grpc_provisioner_go.NewDecommissionClient(provConn)
 	appClient := grpc_application_go.NewApplicationsClient(smConn)
 
 	return &Clients{cClient, nClient, iClient,

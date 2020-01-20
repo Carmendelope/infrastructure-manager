@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -164,8 +164,8 @@ func ValidUninstallClusterRequest(request *grpc_installer_go.UninstallClusterReq
 	return nil
 }
 
-// ValidDecomissionClusterRequest checks that the decomission request contains the required values.
-func ValidDecomissionClusterRequest(request *grpc_provisioner_go.DecomissionClusterRequest) derrors.Error {
+// ValidDecommissionClusterRequest checks that the decommission request contains the required values.
+func ValidDecommissionClusterRequest(request *grpc_provisioner_go.DecommissionClusterRequest) derrors.Error {
 	if request.RequestId != "" {
 		return derrors.NewInvalidArgumentError("request_id is set by infrastructure-manager")
 	}
@@ -176,7 +176,7 @@ func ValidDecomissionClusterRequest(request *grpc_provisioner_go.DecomissionClus
 		return derrors.NewInvalidArgumentError(emptyClusterId)
 	}
 	if request.IsManagementCluster {
-		return derrors.NewInvalidArgumentError("can only decomission application clusters")
+		return derrors.NewInvalidArgumentError("can only decommission application clusters")
 	}
 	if request.TargetPlatform == grpc_installer_go.Platform_AZURE && request.AzureCredentials == nil {
 		return derrors.NewInvalidArgumentError("azure_credentials cannot be empty")

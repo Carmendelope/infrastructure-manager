@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,7 +106,7 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 	var provisionerClient grpc_provisioner_go.ProvisionClient
 	var scaleClient grpc_provisioner_go.ScaleClient
 	var managementClient grpc_provisioner_go.ManagementClient
-	var decommissionClient grpc_provisioner_go.DecomissionClient
+	var decommissionClient grpc_provisioner_go.DecommissionClient
 	var appClient grpc_application_go.ApplicationsClient
 
 	var smConn *grpc.ClientConn
@@ -137,7 +137,7 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 		provisionerClient = grpc_provisioner_go.NewProvisionClient(provConn)
 		scaleClient = grpc_provisioner_go.NewScaleClient(provConn)
 		managementClient = grpc_provisioner_go.NewManagementClient(provConn)
-		decommissionClient = grpc_provisioner_go.NewDecomissionClient(provConn)
+		decommissionClient = grpc_provisioner_go.NewDecommissionClient(provConn)
 		appClient = grpc_application_go.NewApplicationsClient(smConn)
 
 		conn, err := test.GetConn(*listener)

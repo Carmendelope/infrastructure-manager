@@ -30,18 +30,18 @@ import (
 
 // InstallerMonitor structure with the required clients to read and update states of an install.
 type InstallerMonitor struct {
-	clusterID           string
-	installerClient     grpc_installer_go.InstallerClient
-	clusterClient       grpc_infrastructure_go.ClustersClient
-	installerResponse   grpc_common_go.OpResponse
-	callback            func(string, string, string, *grpc_common_go.OpResponse, derrors.Error)
-	decomissionCallback *DecomissionCallback
+	clusterID            string
+	installerClient      grpc_installer_go.InstallerClient
+	clusterClient        grpc_infrastructure_go.ClustersClient
+	installerResponse    grpc_common_go.OpResponse
+	callback             func(string, string, string, *grpc_common_go.OpResponse, derrors.Error)
+	decommissionCallback *DecommissionCallback
 }
 
-// DecomissionCallback is a structure to handle the callback function and required parameters to execute it
-type DecomissionCallback struct {
-	Callback func(*grpc_provisioner_go.DecomissionClusterRequest)
-	Request  *grpc_provisioner_go.DecomissionClusterRequest
+// DecommissionCallback is a structure to handle the callback function and required parameters to execute it
+type DecommissionCallback struct {
+	Callback func(*grpc_provisioner_go.DecommissionClusterRequest)
+	Request  *grpc_provisioner_go.DecommissionClusterRequest
 }
 
 // NewInstallerMonitor creates a new monitor with a set of clients.
@@ -65,8 +65,8 @@ func (m *InstallerMonitor) RegisterCallback(callback func(installID string, orga
 	m.callback = callback
 }
 
-func (m *InstallerMonitor) RegisterDecomissionCallback(callback *DecomissionCallback) {
-	m.decomissionCallback = callback
+func (m *InstallerMonitor) RegisterDecommissionCallback(callback *DecommissionCallback) {
+	m.decommissionCallback = callback
 }
 
 // LaunchMonitor periodically monitors the state of an install waiting for it to complete.
@@ -129,8 +129,8 @@ func (m *InstallerMonitor) notify(lastResponse *grpc_common_go.OpResponse, err e
 		log.Warn().Str("requestID", m.installerResponse.RequestId).
 			Msg("no callback registered")
 	}
-	if m.decomissionCallback != nil {
+	if m.decommissionCallback != nil {
 		log.Debug().Msg("Launch decommission callback")
-		m.decomissionCallback.Callback(m.decomissionCallback.Request)
+		m.decommissionCallback.Callback(m.decommissionCallback.Request)
 	}
 }

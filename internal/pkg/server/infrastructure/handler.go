@@ -85,14 +85,14 @@ func (h *Handler) Uninstall(_ context.Context, request *grpc_installer_go.Uninst
 	return result, nil
 }
 
-// DecomissionCluster frees the resources of a given cluster.
-func (h *Handler) DecomissionCluster(_ context.Context, request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, error) {
-	err := entities.ValidDecomissionClusterRequest(request)
+// DecommissionCluster frees the resources of a given cluster.
+func (h *Handler) DecommissionCluster(_ context.Context, request *grpc_provisioner_go.DecommissionClusterRequest) (*grpc_common_go.OpResponse, error) {
+	err := entities.ValidDecommissionClusterRequest(request)
 	if err != nil {
 		return nil, conversions.ToGRPCError(err)
 	}
 	request.RequestId = uuid.NewV4().String()
-	result, err := h.Manager.UninstallAndDecomissionCluster(request)
+	result, err := h.Manager.UninstallAndDecommissionCluster(request)
 	if err != nil {
 		return nil, conversions.ToGRPCError(err)
 	}
