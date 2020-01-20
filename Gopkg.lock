@@ -229,12 +229,12 @@
   version = "v0.0.38"
 
 [[projects]]
-  digest = "1:962c57de2d67417d5d12e425a7e78f8caf0cac1d946dc924abf14ada676f982f"
+  digest = "1:c6c5d47ad6a7bab895de3a6d51194e6d08ac11d69b57220a036712632d96bb93"
   name = "github.com/nalej/grpc-conductor-go"
   packages = ["."]
   pruneopts = "UT"
-  revision = "97e91f492ecb1ddb85ba746189121655d4c3fe75"
-  version = "v0.0.93"
+  revision = "9cbe44351c8dbd004186abc61dff0430d497022a"
+  version = "v0.0.96"
 
 [[projects]]
   digest = "1:d82da4b7759b7744585f7c854fa980cd6e705f473a0705e97abdf11c537d47a4"
@@ -360,6 +360,7 @@
   version = "v1.5.0"
 
 [[projects]]
+  branch = "master"
   digest = "1:37824da4f75c5237741e73da12a987e160e8094c05aca654a570cc3f260c5433"
   name = "github.com/nalej/nalej-bus"
   packages = [
@@ -370,8 +371,7 @@
     "pkg/queue/infrastructure/ops",
   ]
   pruneopts = "UT"
-  revision = "1dd74ce7d95af3f0b5f15f27043c0255ee0a05d1"
-  version = "v0.4.0"
+  revision = "6ea3eae7779c2e274170fb4441878c5fb3c0b9cc"
 
 [[projects]]
   digest = "1:42e29deef12327a69123b9cb2cb45fee4af5c12c2a23c6e477338279a052703f"

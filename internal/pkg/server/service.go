@@ -49,12 +49,14 @@ func NewService(conf Config) *Service {
 
 // Clients structure with the gRPC clients for remote services.
 type Clients struct {
-	ClusterClient     grpc_infrastructure_go.ClustersClient
-	NodesClient       grpc_infrastructure_go.NodesClient
-	InstallerClient   grpc_installer_go.InstallerClient
-	ProvisionerClient grpc_provisioner_go.ProvisionClient
-	ScalerClient      grpc_provisioner_go.ScaleClient
-	AppClient         grpc_application_go.ApplicationsClient
+	ClusterClient      grpc_infrastructure_go.ClustersClient
+	NodesClient        grpc_infrastructure_go.NodesClient
+	InstallerClient    grpc_installer_go.InstallerClient
+	ProvisionerClient  grpc_provisioner_go.ProvisionClient
+	ScalerClient       grpc_provisioner_go.ScaleClient
+	ManagementClient   grpc_provisioner_go.ManagementClient
+	DecommissionClient grpc_provisioner_go.DecomissionClient
+	AppClient          grpc_application_go.ApplicationsClient
 }
 
 // GetClients creates the required connections with the remote clients.
@@ -76,10 +78,13 @@ func (s *Service) GetClients() (*Clients, derrors.Error) {
 	iClient := grpc_installer_go.NewInstallerClient(insConn)
 	pClient := grpc_provisioner_go.NewProvisionClient(provConn)
 	scClient := grpc_provisioner_go.NewScaleClient(provConn)
+	mnClient := grpc_provisioner_go.NewManagementClient(provConn)
+	dcClient := grpc_provisioner_go.NewDecomissionClient(provConn)
 	appClient := grpc_application_go.NewApplicationsClient(smConn)
 
 	return &Clients{cClient, nClient, iClient,
-		pClient, scClient, appClient}, nil
+		pClient, scClient, mnClient,
+		dcClient, appClient}, nil
 }
 
 // Run the service, launch the REST service handler.
@@ -92,11 +97,13 @@ func (s *Service) Run() error {
 	clients, cErr := s.GetClients()
 	if cErr != nil {
 		log.Fatal().Str("err", cErr.DebugReport()).Msg("Cannot create clients")
+		return cErr
 	}
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", s.Configuration.Port))
 	if err != nil {
 		log.Fatal().Errs("failed to listen: %v", []error{err})
+		return err
 	}
 
 	// Create a bus manager
@@ -114,7 +121,8 @@ func (s *Service) Run() error {
 	manager := infrastructure.NewManager(
 		s.Configuration.TempDir,
 		clients.ClusterClient, clients.NodesClient, clients.InstallerClient,
-		clients.ProvisionerClient, clients.ScalerClient, clients.AppClient, busManager)
+		clients.ProvisionerClient, clients.ScalerClient, clients.ManagementClient,
+		clients.DecommissionClient, clients.AppClient, busManager)
 	handler := infrastructure.NewHandler(manager)
 
 	grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(s.Server, handler)

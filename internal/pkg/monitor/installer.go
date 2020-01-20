@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@ import (
 	"github.com/nalej/grpc-common-go"
 	"github.com/nalej/grpc-infrastructure-go"
 	"github.com/nalej/grpc-installer-go"
+	"github.com/nalej/grpc-provisioner-go"
 	"github.com/nalej/grpc-utils/pkg/conversions"
 	"github.com/rs/zerolog/log"
 	"time"
@@ -29,11 +30,18 @@ import (
 
 // InstallerMonitor structure with the required clients to read and update states of an install.
 type InstallerMonitor struct {
-	clusterID         string
-	installerClient   grpc_installer_go.InstallerClient
-	clusterClient     grpc_infrastructure_go.ClustersClient
-	installerResponse grpc_common_go.OpResponse
-	callback          func(string, string, string, *grpc_common_go.OpResponse, derrors.Error)
+	clusterID           string
+	installerClient     grpc_installer_go.InstallerClient
+	clusterClient       grpc_infrastructure_go.ClustersClient
+	installerResponse   grpc_common_go.OpResponse
+	callback            func(string, string, string, *grpc_common_go.OpResponse, derrors.Error)
+	decomissionCallback *DecomissionCallback
+}
+
+// DecomissionCallback is a structure to handle the callback function and required parameters to execute it
+type DecomissionCallback struct {
+	Callback func(*grpc_provisioner_go.DecomissionClusterRequest)
+	Request  *grpc_provisioner_go.DecomissionClusterRequest
 }
 
 // NewInstallerMonitor creates a new monitor with a set of clients.
@@ -55,6 +63,10 @@ func NewInstallerMonitor(
 // when the installation of a cluster finishes.
 func (m *InstallerMonitor) RegisterCallback(callback func(installID string, organizationID string, clusterID string, lastResponse *grpc_common_go.OpResponse, err derrors.Error)) {
 	m.callback = callback
+}
+
+func (m *InstallerMonitor) RegisterDecomissionCallback(callback *DecomissionCallback) {
+	m.decomissionCallback = callback
 }
 
 // LaunchMonitor periodically monitors the state of an install waiting for it to complete.
@@ -116,5 +128,9 @@ func (m *InstallerMonitor) notify(lastResponse *grpc_common_go.OpResponse, err e
 	} else {
 		log.Warn().Str("requestID", m.installerResponse.RequestId).
 			Msg("no callback registered")
+	}
+	if m.decomissionCallback != nil {
+		log.Debug().Msg("Launch decommission callback")
+		m.decomissionCallback.Callback(m.decomissionCallback.Request)
 	}
 }

@@ -105,6 +105,8 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 	var installerClient grpc_installer_go.InstallerClient
 	var provisionerClient grpc_provisioner_go.ProvisionClient
 	var scaleClient grpc_provisioner_go.ScaleClient
+	var managementClient grpc_provisioner_go.ManagementClient
+	var decommissionClient grpc_provisioner_go.DecomissionClient
 	var appClient grpc_application_go.ApplicationsClient
 
 	var smConn *grpc.ClientConn
@@ -134,12 +136,15 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 		provConn = utils.GetConnection(provisionerAddress)
 		provisionerClient = grpc_provisioner_go.NewProvisionClient(provConn)
 		scaleClient = grpc_provisioner_go.NewScaleClient(provConn)
+		managementClient = grpc_provisioner_go.NewManagementClient(provConn)
+		decommissionClient = grpc_provisioner_go.NewDecomissionClient(provConn)
 		appClient = grpc_application_go.NewApplicationsClient(smConn)
 
 		conn, err := test.GetConn(*listener)
 		gomega.Expect(err).To(gomega.Succeed())
 
-		manager := NewManager(tempDir, clusterClient, nodesClient, installerClient, provisionerClient, scaleClient, appClient, nil)
+		manager := NewManager(tempDir, clusterClient, nodesClient, installerClient, provisionerClient, scaleClient,
+			managementClient, decommissionClient, appClient, nil)
 		handler := NewHandler(manager)
 		grpc_infrastructure_manager_go.RegisterInfrastructureManagerServer(server, handler)
 		test.LaunchServer(server, listener)
@@ -158,8 +163,8 @@ var _ = ginkgo.Describe("Infrastructure", func() {
 
 	ginkgo.AfterSuite(func() {
 		server.Stop()
-		listener.Close()
-		smConn.Close()
+		_ = listener.Close()
+		_ = smConn.Close()
 		err := os.RemoveAll(tempDir)
 		gomega.Expect(err).To(gomega.Succeed())
 	})

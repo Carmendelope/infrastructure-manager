@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Nalej
+ * Copyright 2020 Nalej
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ func (h *Handler) Uninstall(_ context.Context, request *grpc_installer_go.Uninst
 		return nil, conversions.ToGRPCError(err)
 	}
 	request.RequestId = uuid.NewV4().String()
-	result, err := h.Manager.Uninstall(request)
+	result, err := h.Manager.Uninstall(request, nil)
 	if err != nil {
 		return nil, conversions.ToGRPCError(err)
 	}
@@ -92,7 +92,7 @@ func (h *Handler) DecomissionCluster(_ context.Context, request *grpc_provisione
 		return nil, conversions.ToGRPCError(err)
 	}
 	request.RequestId = uuid.NewV4().String()
-	result, err := h.Manager.DecomissionCluster(request)
+	result, err := h.Manager.UninstallAndDecomissionCluster(request)
 	if err != nil {
 		return nil, conversions.ToGRPCError(err)
 	}
