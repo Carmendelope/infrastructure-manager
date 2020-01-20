@@ -26,37 +26,37 @@ import (
 	"time"
 )
 
-// DecomissionerMonitor structure with the required clients to read and update states of a decomission.
-type DecomissionerMonitor struct {
-	decomissionerClient grpc_provisioner_go.DecomissionClient
-	clusterId           string
-	requestId           string
-	callback            func(string, *grpc_common_go.OpResponse, derrors.Error)
+// DecommissionerMonitor structure with the required clients to read and update states of a decommission.
+type DecommissionerMonitor struct {
+	decommissionerClient grpc_provisioner_go.DecommissionClient
+	clusterId            string
+	requestId            string
+	callback             func(string, *grpc_common_go.OpResponse, derrors.Error)
 }
 
-// NewDecomissionerMonitor creates a new monitor with a set of clients.
-func NewDecomissionerMonitor(
-	decomissionerClient grpc_provisioner_go.DecomissionClient,
+// NewDecommissionerMonitor creates a new monitor with a set of clients.
+func NewDecommissionerMonitor(
+	decommissionerClient grpc_provisioner_go.DecommissionClient,
 	clusterId string,
-	requestId string) *DecomissionerMonitor {
-	return &DecomissionerMonitor{
-		decomissionerClient: decomissionerClient,
-		clusterId:           clusterId,
-		requestId:           requestId,
-		callback:            nil,
+	requestId string) *DecommissionerMonitor {
+	return &DecommissionerMonitor{
+		decommissionerClient: decommissionerClient,
+		clusterId:            clusterId,
+		requestId:            requestId,
+		callback:             nil,
 	}
 }
 
 // RegisterCallback registers a callback function that will be triggered
-// when the decomission of a cluster finishes.
-func (m *DecomissionerMonitor) RegisterCallback(callback func(clusterID string, lastResponse *grpc_common_go.OpResponse, err derrors.Error)) {
+// when the decommission of a cluster finishes.
+func (m *DecommissionerMonitor) RegisterCallback(callback func(clusterID string, lastResponse *grpc_common_go.OpResponse, err derrors.Error)) {
 	m.callback = callback
 }
 
-// LaunchMonitor periodically monitors the state of a decomission waiting for it to complete.
-func (m *DecomissionerMonitor) LaunchMonitor() {
+// LaunchMonitor periodically monitors the state of a decommission waiting for it to complete.
+func (m *DecommissionerMonitor) LaunchMonitor() {
 	log.Debug().Str("clusterID", m.clusterId).
-		Str("requestID", m.requestId).Msg("Launching decomission monitor")
+		Str("requestID", m.requestId).Msg("Launching decommission monitor")
 
 	requestID := &grpc_common_go.RequestId{
 		RequestId: m.requestId,
@@ -66,9 +66,9 @@ func (m *DecomissionerMonitor) LaunchMonitor() {
 	var status *grpc_common_go.OpResponse
 	var err error
 	for !exit {
-		status, err = m.decomissionerClient.CheckProgress(context.Background(), requestID)
+		status, err = m.decommissionerClient.CheckProgress(context.Background(), requestID)
 		if err != nil {
-			log.Debug().Str("err", conversions.ToDerror(err).DebugReport()).Msg("error requesting decomissioning status")
+			log.Debug().Str("err", conversions.ToDerror(err).DebugReport()).Msg("error requesting decommissioning status")
 			remainingFailures--
 			if remainingFailures == 0 {
 				log.Warn().Str("requestID", requestID.RequestId).Msg("Cannot contact provisioner")
@@ -77,7 +77,7 @@ func (m *DecomissionerMonitor) LaunchMonitor() {
 				time.Sleep(ConnectRetryDelay)
 			}
 		} else {
-			log.Debug().Str("requestID", requestID.RequestId).Int64("elapsed", status.ElapsedTime).Str("state", status.Status.String()).Msg("processing decomission progress")
+			log.Debug().Str("requestID", requestID.RequestId).Int64("elapsed", status.ElapsedTime).Str("state", status.Status.String()).Msg("processing decommission progress")
 			if status.Error != "" || status.Status == grpc_common_go.OpStatus_FAILED || status.Status == grpc_common_go.OpStatus_CANCELED || status.Status == grpc_common_go.OpStatus_SUCCESS {
 				exit = true
 			} else {
@@ -87,18 +87,18 @@ func (m *DecomissionerMonitor) LaunchMonitor() {
 	}
 	m.notify(status, err)
 	log.Debug().Str("clusterID", m.clusterId).
-		Str("requestID", m.requestId).Msg("Decomission monitor exits")
+		Str("requestID", m.requestId).Msg("Decommission monitor exits")
 }
 
 // notify informs the associated callback that the installation has finished.
-func (m *DecomissionerMonitor) notify(lastResponse *grpc_common_go.OpResponse, err error) {
+func (m *DecommissionerMonitor) notify(lastResponse *grpc_common_go.OpResponse, err error) {
 	requestID := &grpc_common_go.RequestId{
 		RequestId: lastResponse.GetRequestId(),
 	}
-	_, rErr := m.decomissionerClient.RemoveDecomission(context.Background(), requestID)
+	_, rErr := m.decommissionerClient.RemoveDecommission(context.Background(), requestID)
 	if rErr != nil {
 		log.Error().Str("requestID", requestID.RequestId).
-			Str("err", conversions.ToDerror(rErr).DebugReport()).Msg("Cannot remove decomission from provisioner")
+			Str("err", conversions.ToDerror(rErr).DebugReport()).Msg("Cannot remove decommission from provisioner")
 	}
 	var cErr derrors.Error
 	if err != nil {

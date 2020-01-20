@@ -57,7 +57,7 @@ type Manager struct {
 	provisionerClient  grpc_provisioner_go.ProvisionClient
 	scalerClient       grpc_provisioner_go.ScaleClient
 	managementClient   grpc_provisioner_go.ManagementClient
-	decommissionClient grpc_provisioner_go.DecomissionClient
+	decommissionClient grpc_provisioner_go.DecommissionClient
 	appClient          grpc_application_go.ApplicationsClient
 	busManager         *bus.BusManager
 }
@@ -71,7 +71,7 @@ func NewManager(
 	provisionerClient grpc_provisioner_go.ProvisionClient,
 	scalerClient grpc_provisioner_go.ScaleClient,
 	managementClient grpc_provisioner_go.ManagementClient,
-	decommissionClient grpc_provisioner_go.DecomissionClient,
+	decommissionClient grpc_provisioner_go.DecommissionClient,
 	appClient grpc_application_go.ApplicationsClient,
 	busManager *bus.BusManager) Manager {
 	return Manager{
@@ -690,7 +690,7 @@ func (m *Manager) RemoveNodes(removeNodesRequest *grpc_infrastructure_go.RemoveN
 }
 
 // Uninstall proceeds to remove all Nalej created elements in the cluster.
-func (m *Manager) Uninstall(request *grpc_installer_go.UninstallClusterRequest, decomissionCallback *monitor.DecomissionCallback) (*grpc_common_go.OpResponse, derrors.Error) {
+func (m *Manager) Uninstall(request *grpc_installer_go.UninstallClusterRequest, decommissionCallback *monitor.DecommissionCallback) (*grpc_common_go.OpResponse, derrors.Error) {
 	log.Debug().Str("requestID", request.RequestId).
 		Str("organizationID", request.OrganizationId).Str("clusterID", request.ClusterId).
 		Str("platform", request.TargetPlatform.String()).Msg("Uninstall request")
@@ -720,7 +720,7 @@ func (m *Manager) Uninstall(request *grpc_installer_go.UninstallClusterRequest, 
 		Msg("cluster is uninstalling")
 	mon := monitor.NewInstallerMonitor(request.ClusterId, m.installerClient, m.clusterClient, *response)
 	mon.RegisterCallback(m.uninstallCallback)
-	mon.RegisterDecomissionCallback(decomissionCallback)
+	mon.RegisterDecommissionCallback(decommissionCallback)
 	go mon.LaunchMonitor()
 	return response, nil
 }
@@ -754,8 +754,8 @@ func (m *Manager) uninstallCallback(
 		Msg("cluster has been uninstalled")
 }
 
-// UninstallAndDecomissionCluster frees the resources of a given cluster.
-func (m *Manager) UninstallAndDecomissionCluster(request *grpc_provisioner_go.DecomissionClusterRequest) (*grpc_common_go.OpResponse, derrors.Error) {
+// UninstallAndDecommissionCluster frees the resources of a given cluster.
+func (m *Manager) UninstallAndDecommissionCluster(request *grpc_provisioner_go.DecommissionClusterRequest) (*grpc_common_go.OpResponse, derrors.Error) {
 	// Retrieve the kubeconfig from provisioner
 	getKubeConfigCtx, getKubeConfigCancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer getKubeConfigCancel()
@@ -787,7 +787,7 @@ func (m *Manager) UninstallAndDecomissionCluster(request *grpc_provisioner_go.De
 		KubeConfigRaw:  kubeConfigResponse.GetRawKubeConfig(),
 		TargetPlatform: request.GetTargetPlatform(),
 	}
-	response, derr := m.Uninstall(&uninstallRequest, &monitor.DecomissionCallback{
+	response, derr := m.Uninstall(&uninstallRequest, &monitor.DecommissionCallback{
 		Callback: m.Decommission,
 		Request:  request,
 	})
@@ -802,10 +802,10 @@ func (m *Manager) UninstallAndDecomissionCluster(request *grpc_provisioner_go.De
 	return response, nil
 }
 
-func (m *Manager) Decommission(request *grpc_provisioner_go.DecomissionClusterRequest) {
+func (m *Manager) Decommission(request *grpc_provisioner_go.DecommissionClusterRequest) {
 	decommissionCtx, decommissionCancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer decommissionCancel()
-	decommissionRequest := grpc_provisioner_go.DecomissionClusterRequest{
+	decommissionRequest := grpc_provisioner_go.DecommissionClusterRequest{
 		RequestId:           request.GetRequestId(),
 		OrganizationId:      request.GetOrganizationId(),
 		ClusterId:           request.GetClusterId(),
@@ -815,23 +815,23 @@ func (m *Manager) Decommission(request *grpc_provisioner_go.DecomissionClusterRe
 		AzureCredentials:    request.GetAzureCredentials(),
 		AzureOptions:        request.GetAzureOptions(),
 	}
-	decomissionerResponse, err := m.decommissionClient.DecomissionCluster(decommissionCtx, &decommissionRequest)
+	decommissionerResponse, err := m.decommissionClient.DecommissionCluster(decommissionCtx, &decommissionRequest)
 	if err != nil {
 		derr := conversions.ToDerror(err)
 		log.Error().
 			Err(derr).
 			Str("DebugReport", derr.DebugReport()).
 			Interface("request", decommissionRequest).
-			Interface("response", decomissionerResponse).
+			Interface("response", decommissionerResponse).
 			Msg("unable to decommission cluster")
 		return
 	}
-	mon := monitor.NewDecomissionerMonitor(m.decommissionClient, request.GetClusterId(), request.GetRequestId())
-	mon.RegisterCallback(m.decomissionCallback)
+	mon := monitor.NewDecommissionerMonitor(m.decommissionClient, request.GetClusterId(), request.GetRequestId())
+	mon.RegisterCallback(m.decommissionCallback)
 	mon.LaunchMonitor()
 }
 
-func (m *Manager) decomissionCallback(clusterID string, lastResponse *grpc_common_go.OpResponse, err derrors.Error) {
+func (m *Manager) decommissionCallback(clusterID string, lastResponse *grpc_common_go.OpResponse, err derrors.Error) {
 	err = m.removeClusterFromSM(lastResponse.GetRequestId(), lastResponse.GetOrganizationId(), clusterID)
 	if err != nil {
 		log.Error().Str("err", err.DebugReport()).Msg("could not remove cluster from SM")
