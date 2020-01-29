@@ -106,6 +106,34 @@ func (m *Manager) writeTempFile(content string, prefix string) (*string, derrors
 	return &tmpName, nil
 }
 
+func (m *Manager) attachNodes(requestID string, organizationID string, clusterID string, cluster *entities.Cluster) derrors.Error {
+	for _, n := range cluster.Nodes {
+		nodeToAdd := &grpc_infrastructure_go.AddNodeRequest{
+			RequestId:      requestID,
+			OrganizationId: organizationID,
+			Ip:             n.IP,
+			Labels:         n.Labels,
+		}
+		log.Debug().Str("IP", nodeToAdd.Ip).Msg("Adding node to SM")
+		addedNode, err := m.nodesClient.AddNode(context.Background(), nodeToAdd)
+		if err != nil {
+			return conversions.ToDerror(err)
+		}
+		attachReq := &grpc_infrastructure_go.AttachNodeRequest{
+			RequestId:      requestID,
+			OrganizationId: organizationID,
+			ClusterId:      clusterID,
+			NodeId:         addedNode.NodeId,
+		}
+		log.Debug().Str("nodeId", attachReq.NodeId).Str("clusterID", attachReq.ClusterId).Msg("Attaching node to cluster")
+		_, err = m.nodesClient.AttachNode(context.Background(), attachReq)
+		if err != nil {
+			return conversions.ToDerror(err)
+		}
+	}
+	return nil
+}
+
 // addClusterToSM adds the newly discovered cluster to the system model.
 func (m *Manager) addClusterToSM(requestID string, organizationID string, cluster entities.Cluster, clusterState grpc_infrastructure_go.ClusterState) (*grpc_infrastructure_go.Cluster, derrors.Error) {
 	toAdd := &grpc_infrastructure_go.AddClusterRequest{
@@ -125,29 +153,10 @@ func (m *Manager) addClusterToSM(requestID string, organizationID string, cluste
 		return nil, conversions.ToDerror(err)
 	}
 
-	for _, n := range cluster.Nodes {
-		nodeToAdd := &grpc_infrastructure_go.AddNodeRequest{
-			RequestId:      requestID,
-			OrganizationId: organizationID,
-			Ip:             n.IP,
-			Labels:         n.Labels,
-		}
-		log.Debug().Str("IP", nodeToAdd.Ip).Msg("Adding node to SM")
-		addedNode, err := m.nodesClient.AddNode(context.Background(), nodeToAdd)
-		if err != nil {
-			return nil, conversions.ToDerror(err)
-		}
-		attachReq := &grpc_infrastructure_go.AttachNodeRequest{
-			RequestId:      requestID,
-			OrganizationId: organizationID,
-			ClusterId:      clusterAdded.ClusterId,
-			NodeId:         addedNode.NodeId,
-		}
-		log.Debug().Str("nodeId", attachReq.NodeId).Str("clusterID", attachReq.ClusterId).Msg("Attaching node to cluster")
-		_, err = m.nodesClient.AttachNode(context.Background(), attachReq)
-		if err != nil {
-			return nil, conversions.ToDerror(err)
-		}
+	// add and attach nodes
+	attErr := m.attachNodes(requestID, organizationID, clusterAdded.ClusterId, &cluster)
+	if attErr != nil {
+		return nil, attErr
 	}
 
 	// Retrieve the cluster from system model so that it contains up-to-date information as required by the calling
@@ -396,6 +405,13 @@ func (m *Manager) provisionCallback(requestID string, organizationID string, clu
 	_, updErr := m.UpdateCluster(clusterUpdate)
 	if updErr != nil {
 		log.Error().Str("trace", conversions.ToDerror(updErr).DebugReport()).Msg("error updating discovered cluster")
+	}
+
+	// create the nodes and attach the to the cluster
+	attErr := m.attachNodes(requestID, organizationID, clusterID, discovered )
+	if attErr != nil {
+		// TODO: What to do??
+		log.Error().Str("trace", attErr.DebugReport()).Msg("error attaching nodes")
 	}
 
 	installRequest := &grpc_installer_go.InstallRequest{
