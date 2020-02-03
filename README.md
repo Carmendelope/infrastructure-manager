@@ -1,19 +1,17 @@
 # infrastructure-manager
 
-This repository contains the infrastructure manager in charge of the operations related to adding and removing infrastructure.
+The infrastructure manager is in charge of adding and removing infrastructure.
 
 ## Getting Started
 
-The component will leverage the `installer`, `provisioner` and `system-model` to orchestrate the business logic behind infrastructure operations.
+The component will use the `installer`, `provisioner` and `system-model` to orchestrate the business logic behind infrastructure operations.
 
 ### Prerequisites
 
-Detail any component that has to be installed to run this component.
-
-* system-model
-* installer
-* provisioner
-* nalej-bus
+* [system-model](https://github.com/nalej/system-model)
+* [installer](https://github.com/nalej/installer)
+* [provisioner](https://github.com/nalej/provisioner)
+* [nalej-bus](https://github.com/nalej/nalej-bus)
 
 ### Build and compile
 
@@ -23,8 +21,7 @@ In order to build and compile this repository use the provided Makefile:
 make all
 ```
 
-This operation generates the binaries for this repo, download dependencies,
-run existing tests and generate ready-to-deploy Kubernetes files.
+This operation generates the binaries for this repo, downloads the required dependencies, runs existing tests and generates ready-to-deploy Kubernetes files.
 
 ### Run tests
 
@@ -51,8 +48,8 @@ dep ensure -update -v
 ## Known issues
 
 * The monitoring system of ongoing requests will not be able to continue in the event of a failure of the
-infrastructure-manager. A refactor where messages are sent to the bus by the provisioner and installer components
-and consumed by the infrastructure-manager will increase the reliability and scalability of the system. This
+`infrastructure-manager`. A refactor where messages are sent to the bus by the `provisioner` and `installer` components
+and consumed by the `infrastructure-manager` would increase the reliability and scalability of the system. This
 refactor is planned for future versions of the platform (NP-2429).
 
 ## Contributing
@@ -62,7 +59,7 @@ Please read [contributing.md](contributing.md) for details on our code of conduc
 
 ## Versioning
 
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/nalej/infrastructure-manager/tags). 
+We use [SemVer](http://semver.org/) for versioning. For the available versions, see the [tags on this repository](https://github.com/nalej/infrastructure-manager/tags). 
 
 ## Authors
 
